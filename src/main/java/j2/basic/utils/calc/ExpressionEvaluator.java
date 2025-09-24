@@ -77,7 +77,7 @@ public class ExpressionEvaluator {
           String replacement = CalculatorUtils.formatValueForExpression(value);
           matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
         } catch (Exception e) {
-          throw new RuntimeException("无法获取单元格值: " + cellId + " - " + e.getMessage());
+          throw new RuntimeException("无法获取单元格值 " + cellId + " - " + e.getMessage());
         }
       }
     }
@@ -196,7 +196,7 @@ public class ExpressionEvaluator {
         return jcall(args);
 
       default:
-        throw new RuntimeException("未知函数: " + functionName);
+        throw new RuntimeException("未知函数 " + functionName);
     }
   }
 
@@ -698,7 +698,7 @@ public class ExpressionEvaluator {
       case ">=":
         return cmp >= 0;
       default:
-        throw new RuntimeException("未知比较运算符: " + op);
+        throw new RuntimeException("未知比较运算符 " + op);
     }
   }
 
@@ -1044,7 +1044,7 @@ public class ExpressionEvaluator {
    */
   private Object not(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("not函数需要1个参数");
+      throw new RuntimeException("not 函数需要 1 个参数");
     }
     return isTrue(args.get(0)) ? Boolean.FALSE : Boolean.TRUE;
   }
@@ -1075,7 +1075,7 @@ public class ExpressionEvaluator {
    */
   private Object ifFunction(List<Object> args) {
     if (args.size() != 3) {
-      throw new RuntimeException("if函数需要3个参数");
+      throw new RuntimeException("if 函数需要 3 个参数");
     }
     return isTrue(args.get(0)) ? args.get(1) : args.get(2);
   }
@@ -1091,7 +1091,7 @@ public class ExpressionEvaluator {
    */
   private Object ifs(List<Object> args) {
     if (args.size() < 2) {
-      throw new RuntimeException("ifs函数至少需要2个参数");
+      throw new RuntimeException("ifs 函数至少需要 2 个参数");
     }
 
     // 如果是奇数个参数，最后一个是默认值
@@ -1110,7 +1110,7 @@ public class ExpressionEvaluator {
       return args.get(args.size() - 1);
     }
 
-    throw new RuntimeException("ifs函数没有匹配的条件且没有默认值");
+    throw new RuntimeException("ifs 函数没有匹配的条件且没有默认值");
   }
 
   /**
@@ -1123,7 +1123,7 @@ public class ExpressionEvaluator {
    */
   private Object jcall(List<Object> args) {
     if (args.size() < 2) {
-      throw new RuntimeException("jcall函数至少需要2个参数（类名和方法名）");
+      throw new RuntimeException("jcall 函数至少需要 2 个参数（类名和方法名）");
     }
 
     // 确保类名和方法名是字符串
@@ -1154,11 +1154,11 @@ public class ExpressionEvaluator {
         }
       }
 
-      throw new RuntimeException("找不到匹配的静态方法: " + className + "." + methodName +
+      throw new RuntimeException("找不到匹配的静态方法 " + className + "." + methodName +
           " 参数个数: " + methodArgs.length);
 
     } catch (Exception e) {
-      throw new RuntimeException("Java方法调用失败: " + className + "." + methodName +
+      throw new RuntimeException("Java方法调用失败 " + className + "." + methodName +
           " - " + e.getClass().getSimpleName() + ": " + e.getMessage(), e);
     }
   }
@@ -1213,6 +1213,4 @@ public class ExpressionEvaluator {
     }
     return result;
   }
-
-
 }

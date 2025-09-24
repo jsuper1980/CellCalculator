@@ -366,8 +366,8 @@ public class CellCalculator {
       String reference = matcher.group(1);
 
       // 排除内置函数名和无效的单元格ID
-      if (!CalculatorUtils.BUILT_IN_FUNCTIONS.contains(reference.toLowerCase()) &&
-          CalculatorUtils.CELL_ID_PATTERN.matcher(reference).matches()) {
+      if (!CalculatorUtils.BUILT_IN_FUNCTIONS.contains(reference.toLowerCase())
+          && CalculatorUtils.CELL_ID_PATTERN.matcher(reference).matches()) {
         dependencies.add(reference);
       }
     }
@@ -390,8 +390,7 @@ public class CellCalculator {
   private void checkCircularReference(String cellId, Set<String> newDependencies) {
     Set<String> visited = new HashSet<>();
     if (hasCircularReference(cellId, newDependencies, visited)) {
-      throw new RuntimeException("检测到循环引用: " + cellId +
-          " -> " + String.join(" -> ", visited));
+      throw new RuntimeException("检测到循环引用 " + cellId + " -> " + String.join(" -> ", visited));
     }
   }
 
@@ -684,29 +683,5 @@ public class CellCalculator {
     }
 
     return levelGroups;
-  }
-
-  /**
-   * 格式化单元格值为显示字符串
-   * 
-   * @param value 单元格值
-   * @return 格式化后的字符串
-   */
-  private String formatCellValue(Object value) {
-    return CalculatorUtils.formatCellValue(value);
-  }
-
-  /**
-   * 格式化数值为字符串
-   * 
-   * 优化显示：
-   * 1. 移除尾随零
-   * 2. 对于大数或小数使用科学计数法
-   * 
-   * @param number 要格式化的数值
-   * @return 格式化后的字符串
-   */
-  private String formatNumber(BigDecimal number) {
-    return CalculatorUtils.formatNumber(number);
   }
 }
