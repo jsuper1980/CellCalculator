@@ -36,6 +36,11 @@ public class ExpressionEvaluator {
       return expression.substring(1, expression.length() - 1);
     }
 
+    // 处理双引号字符串字面量
+    if (expression.startsWith("\"") && expression.endsWith("\"") && expression.length() > 1) {
+      return expression.substring(1, expression.length() - 1);
+    }
+
     // 检查是否是 jcall 函数调用，如果是则直接处理
     Matcher jcallMatcher = CalculatorUtils.JCALL_PATTERN.matcher(expression);
     if (jcallMatcher.matches()) {
@@ -57,33 +62,69 @@ public class ExpressionEvaluator {
    * 替换单元格引用为实际值
    */
   private String replaceCellReferences(String expression) {
-    // 替换单元格引用为其值
-    Matcher matcher = CalculatorUtils.CELL_REFERENCE_PATTERN.matcher(expression);
-    StringBuffer sb = new StringBuffer();
+    // 替换单元格引用为其值，但要跳过字符串字面量
+    StringBuilder result = new StringBuilder();
+    boolean inSingleQuote = false;
+    boolean inDoubleQuote = false;
+    int i = 0;
 
-    while (matcher.find()) {
-      String cellId = matcher.group(1);
+    while (i < expression.length()) {
+      char c = expression.charAt(i);
 
-      // 检查是否是内置函数
-      if (CalculatorUtils.isBuiltInFunction(cellId)) {
-        continue;
-      }
+      if (c == '\'' && !inDoubleQuote) {
+        inSingleQuote = !inSingleQuote;
+        result.append(c);
+        i++;
+      } else if (c == '"' && !inSingleQuote) {
+        inDoubleQuote = !inDoubleQuote;
+        result.append(c);
+        i++;
+      } else if (inSingleQuote || inDoubleQuote) {
+        // 在字符串内部，直接添加字符，不进行单元格引用替换
+        result.append(c);
+        i++;
+      } else {
+        // 在字符串外部，检查是否是单元格引用
+        Matcher matcher = CalculatorUtils.CELL_REFERENCE_PATTERN.matcher(expression.substring(i));
+        if (matcher.lookingAt()) {
+          String cellId = matcher.group(1);
 
-      // 检查是否是有效的单元格ID
-      if (CalculatorUtils.isValidCellId(cellId)) {
-        try {
-          // 直接获取单元格的已计算值，避免触发重新计算
-          Object value = calculator.getRawValue(cellId);
-          String replacement = CalculatorUtils.formatValueForExpression(value);
-          matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
-        } catch (Exception e) {
-          throw new RuntimeException("无法获取单元格值 " + cellId + " - " + e.getMessage());
+          // 检查是否是内置函数
+          if (CalculatorUtils.isBuiltInFunction(cellId)) {
+            result.append(cellId);
+            i += cellId.length();
+          } else if (CalculatorUtils.isValidCellId(cellId)) {
+            // 检查是否是有效的单元格ID，并且单元格确实存在
+            try {
+              // 直接获取单元格的已计算值，避免触发重新计算
+              Object value = calculator.getRawValue(cellId);
+              // 只有当单元格存在且有值时才进行替换
+              if (value != null) {
+                String replacement = CalculatorUtils.formatValueForExpression(value);
+                result.append(replacement);
+                i += cellId.length();
+              } else {
+                // 单元格不存在或为null，不进行替换，直接添加原字符
+                result.append(c);
+                i++;
+              }
+            } catch (Exception e) {
+              // 如果获取单元格值失败，不进行替换，直接添加原字符
+              result.append(c);
+              i++;
+            }
+          } else {
+            result.append(c);
+            i++;
+          }
+        } else {
+          result.append(c);
+          i++;
         }
       }
     }
-    matcher.appendTail(sb);
 
-    return sb.toString();
+    return result.toString();
   }
 
   /**
@@ -215,8 +256,8 @@ public class ExpressionEvaluator {
       return args;
     }
 
-    // 简单的参数分割（不处理嵌套括号）
-    String[] parts = argsString.split(",");
+    // 智能参数分割，正确处理字符串中的逗号
+    List<String> parts = smartSplitArguments(argsString);
     for (String part : parts) {
       part = part.trim();
       if (!part.isEmpty()) {
@@ -234,6 +275,48 @@ public class ExpressionEvaluator {
     }
 
     return args;
+  }
+
+  /**
+   * 智能分割参数，正确处理字符串中的逗号和嵌套括号
+   */
+  private List<String> smartSplitArguments(String argsString) {
+    List<String> parts = new ArrayList<>();
+    StringBuilder current = new StringBuilder();
+    boolean inSingleQuote = false;
+    boolean inDoubleQuote = false;
+    int parenthesesLevel = 0;
+
+    for (int i = 0; i < argsString.length(); i++) {
+      char c = argsString.charAt(i);
+
+      if (c == '\'' && !inDoubleQuote) {
+        inSingleQuote = !inSingleQuote;
+        current.append(c);
+      } else if (c == '"' && !inSingleQuote) {
+        inDoubleQuote = !inDoubleQuote;
+        current.append(c);
+      } else if (c == '(' && !inSingleQuote && !inDoubleQuote) {
+        parenthesesLevel++;
+        current.append(c);
+      } else if (c == ')' && !inSingleQuote && !inDoubleQuote) {
+        parenthesesLevel--;
+        current.append(c);
+      } else if (c == ',' && !inSingleQuote && !inDoubleQuote && parenthesesLevel == 0) {
+        // 只有在不在字符串内且不在嵌套括号内时，逗号才是参数分隔符
+        parts.add(current.toString().trim()); // 去除前后空格
+        current.setLength(0);
+      } else {
+        current.append(c);
+      }
+    }
+
+    // 添加最后一个参数
+    if (current.length() > 0) {
+      parts.add(current.toString().trim()); // 去除前后空格
+    }
+
+    return parts;
   }
 
   /**
@@ -261,18 +344,30 @@ public class ExpressionEvaluator {
   private List<String> tokenize(String expression) {
     List<String> tokens = new ArrayList<>();
     StringBuilder current = new StringBuilder();
+    boolean inSingleQuote = false;
+    boolean inDoubleQuote = false;
 
     for (int i = 0; i < expression.length(); i++) {
       char c = expression.charAt(i);
 
-      if (Character.isWhitespace(c)) {
+      // 处理字符串字面量
+      if (c == '\'' && !inDoubleQuote) {
+        inSingleQuote = !inSingleQuote;
+        current.append(c);
+      } else if (c == '"' && !inSingleQuote) {
+        inDoubleQuote = !inDoubleQuote;
+        current.append(c);
+      } else if (inSingleQuote || inDoubleQuote) {
+        // 在字符串内部，所有字符都是字面量
+        current.append(c);
+      } else if (Character.isWhitespace(c)) {
         // 遇到空白字符，结束当前标记
         if (current.length() > 0) {
           tokens.add(current.toString());
           current.setLength(0);
         }
-      } else if (CalculatorUtils.isOperatorChar(c)) {
-        // 遇到运算符字符
+      } else if (CalculatorUtils.isOperatorChar(c) || c == ',') {
+        // 遇到运算符字符或逗号
         if (current.length() > 0) {
           tokens.add(current.toString());
           current.setLength(0);

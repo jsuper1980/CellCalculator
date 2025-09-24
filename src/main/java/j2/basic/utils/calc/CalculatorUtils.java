@@ -97,6 +97,12 @@ public class CalculatorUtils {
 
     value = value.trim();
 
+    // 字符串字面量解析（带引号的字符串）
+    if ((value.startsWith("'") && value.endsWith("'")) ||
+        (value.startsWith("\"") && value.endsWith("\""))) {
+      return value.substring(1, value.length() - 1);
+    }
+
     // 布尔值解析
     if ("true".equalsIgnoreCase(value)) {
       return Boolean.TRUE;
@@ -186,12 +192,8 @@ public class CalculatorUtils {
     }
     if (value instanceof String) {
       String str = (String) value;
-      // 如果字符串包含点号，可能是类名或错误信息，需要加引号
-      if (str.contains(".") || str.contains(" ")) {
-        return "\"" + str + "\"";
-      }
-      // 对于简单字符串，直接返回
-      return str;
+      // 对于字符串，需要添加引号以确保在后续解析中被正确识别为字符串字面量
+      return "'" + str.replace("'", "\\'") + "'";
     }
     return value.toString();
   }
@@ -211,12 +213,12 @@ public class CalculatorUtils {
     if (id == null || id.trim().isEmpty()) {
       return false;
     }
-    
+
     // 将 true 和 false 作为保留字，不能作为 CellID
     if ("true".equalsIgnoreCase(id) || "false".equalsIgnoreCase(id)) {
       return false;
     }
-    
+
     return CELL_ID_PATTERN.matcher(id).matches();
   }
 

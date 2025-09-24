@@ -1,10 +1,12 @@
 package j2.basic.utils.calc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 /**
  * CellCalculator测试类
@@ -140,7 +142,7 @@ public class CellCalculatorTests {
     calculator.set("G3", "=MIN(A1,B1)");
     calculator.set("G4", "=SQRT(A1)");
     calculator.set("G5", "=ROUND(B1,1)");
-    calculator.set("G6", "=IF(A1>50,'大','小')");
+    calculator.set("G6", "=IF(A1>50,'大,big','小 and small')");
 
     calculator.set("C1", 55);
     calculator.set("G7", "=IFS(C1>=90,'优',C1>=80,'良',C1>=60,'中','差')");
@@ -152,7 +154,7 @@ public class CellCalculatorTests {
     System.out.println("G3 = MIN(A1,B1) = " + calculator.get("G3"));
     System.out.println("G4 = SQRT(A1) = " + calculator.get("G4"));
     System.out.println("G5 = ROUND(B1,1) = " + calculator.get("G5"));
-    System.out.println("G6 = IF(A1>50,'大','小') = " + calculator.get("G6"));
+    System.out.println("G6 = IF(A1>50,'大,big','小,small') = " + calculator.get("G6"));
     System.out.println("G7 = " + calculator.getDefine("G7") + " = " + calculator.get("G7"));
 
     assertEquals("50", calculator.get("G1"));
@@ -160,7 +162,7 @@ public class CellCalculatorTests {
     assertEquals("100", calculator.get("G3"));
     assertEquals("10", calculator.get("G4"));
     assertEquals("200.5", calculator.get("G5"));
-    assertEquals("大", calculator.get("G6"));
+    assertEquals("大,big", calculator.get("G6"));
     assertEquals("差", calculator.get("G7"));
   }
 
