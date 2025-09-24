@@ -51,8 +51,7 @@ public class CellCalculator {
    * 线程池 - 用于并行计算依赖单元格
    * 根据CPU核心数动态调整线程池大小，避免过度创建线程
    */
-  private final ExecutorService executor = Executors.newFixedThreadPool(
-      Math.max(2, Runtime.getRuntime().availableProcessors()));
+  private final ExecutorService executor = Executors.newFixedThreadPool(Math.max(2, Runtime.getRuntime().availableProcessors()));
 
   // ==================== 公共API方法 ====================
 
@@ -510,55 +509,136 @@ public class CellCalculator {
   }
 
   /**
-   * 重新计算依赖单元格 - 性能优化版本
+   * 重新计算依赖单元格
    * 
-   * 优化策略：
-   * 1. 获取所有受影响的单元格
-   * 2. 拓扑排序确定计算顺序
-   * 3. 按层级分组并行计算
-   * 4. 单个单元格直接计算，多个单元格并行计算
+   * 当单元格值发生变化时，需要重新计算所有依赖它的单元格
+   * 使用拓扑排序确保计算顺序正确，并按层级并行计算提高性能
    * 
    * @param cellId 发生变化的单元格ID
    */
   private void recalculateDependents(String cellId) {
+    long startTime = CalculatorUtils.DEBUG_MODE ? System.nanoTime() : 0;
+
     // 1. 获取所有需要重新计算的单元格
     Set<String> allDependents = getAllDependents(cellId);
     if (allDependents.isEmpty()) {
       return;
     }
 
+    CalculatorUtils.debugPrint("[DEBUG] 重新计算依赖: %s -> %d个依赖单元格%n", cellId, allDependents.size());
+
     // 2. 拓扑排序确定计算顺序
     List<String> sortedCells = topologicalSort(allDependents);
 
-    // 3. 按层级分组
-    Map<Integer, List<String>> levelGroups = groupByLevel(sortedCells);
+    // 3. 按层级并行计算（参考 OldCellCalculator 的设计）
+    calculateCellsInParallel(sortedCells);
 
-    // 4. 按层级顺序计算
-    for (Map.Entry<Integer, List<String>> entry : levelGroups.entrySet()) {
-      List<String> cellsAtLevel = entry.getValue();
+    if (CalculatorUtils.DEBUG_MODE) {
+      long duration = System.nanoTime() - startTime;
+      CalculatorUtils.debugPrint("[DEBUG] 依赖计算完成: 耗时 %.2f ms%n", duration / 1_000_000.0);
+    }
+  }
 
-      if (cellsAtLevel.size() == 1) {
-        // 单个单元格直接计算
-        String singleCellId = cellsAtLevel.get(0);
-        Cell cell = cells.get(singleCellId);
-        if (cell != null) {
-          calculateCell(cell);
+  /**
+   * 按层级并行计算单元格
+   * 参考 OldCellCalculator 的设计，避免线程池死锁问题
+   * 
+   * 优化策略：
+   * 1. 同一层级内的单元格可以并行计算（无依赖关系）
+   * 2. 不同层级间必须串行执行（有依赖关系）
+   * 3. 避免过度使用线程池，防止死锁
+   * 
+   * @param sortedCells 拓扑排序后的单元格列表
+   */
+  private void calculateCellsInParallel(List<String> sortedCells) {
+    // 构建层级结构
+    Map<String, Integer> cellLevels = new HashMap<>();
+    Map<Integer, List<String>> levelGroups = new HashMap<>();
+
+    // 计算每个单元格的层级（基于依赖深度）
+    for (String cellId : sortedCells) {
+      int level = calculateCellLevel(cellId, sortedCells);
+      cellLevels.put(cellId, level);
+      levelGroups.computeIfAbsent(level, k -> new ArrayList<>()).add(cellId);
+    }
+
+    // 按层级顺序执行
+    int maxLevel = levelGroups.keySet().stream().mapToInt(Integer::intValue).max().orElse(0);
+
+    CalculatorUtils.debugPrint("[DEBUG] 层级计算: 共%d层，%d个单元格%n", maxLevel + 1, sortedCells.size());
+
+    for (int level = 0; level <= maxLevel; level++) {
+      List<String> cellsAtLevel = levelGroups.get(level);
+      if (cellsAtLevel != null && !cellsAtLevel.isEmpty()) {
+
+        long levelStartTime = CalculatorUtils.DEBUG_MODE ? System.nanoTime() : 0;
+
+        if (cellsAtLevel.size() == 1) {
+          // 单个单元格直接计算，避免线程池开销
+          String cellId = cellsAtLevel.get(0);
+          Cell cell = cells.get(cellId);
+          if (cell != null) {
+            calculateCell(cell);
+          }
+          CalculatorUtils.debugPrint("[DEBUG] 第%d层: 1个单元格(串行)%n", level);
+        } else if (cellsAtLevel.size() <= 4) {
+          // 少量单元格串行计算，避免线程池开销
+          for (String cellId : cellsAtLevel) {
+            Cell cell = cells.get(cellId);
+            if (cell != null) {
+              calculateCell(cell);
+            }
+          }
+          CalculatorUtils.debugPrint("[DEBUG] 第%d层: %d个单元格(串行)%n", level, cellsAtLevel.size());
+        } else {
+          // 大量单元格并行计算，提高性能
+          List<CompletableFuture<Void>> futures = cellsAtLevel.stream()
+              .map(cellId -> CompletableFuture.runAsync(() -> {
+                Cell cell = cells.get(cellId);
+                if (cell != null) {
+                  calculateCell(cell);
+                }
+              }, executor))
+              .toList();
+
+          // 等待当前层级所有计算完成
+          CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+          CalculatorUtils.debugPrint("[DEBUG] 第%d层: %d个单元格(并行)%n", level, cellsAtLevel.size());
         }
-      } else {
-        // 多个单元格并行计算
-        List<CompletableFuture<Void>> futures = cellsAtLevel.stream()
-            .map(id -> CompletableFuture.runAsync(() -> {
-              Cell cell = cells.get(id);
-              if (cell != null) {
-                calculateCell(cell);
-              }
-            }, executor))
-            .toList();
 
-        // 等待当前层级所有计算完成
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        if (CalculatorUtils.DEBUG_MODE) {
+          long levelDuration = System.nanoTime() - levelStartTime;
+          CalculatorUtils.debugPrint("[DEBUG] 第%d层计算完成: 耗时 %.2f ms%n", level, levelDuration / 1_000_000.0);
+        }
       }
     }
+  }
+
+  /**
+   * 计算单元格在依赖图中的层级
+   * 参考 OldCellCalculator 的 calculateCellLevel 方法
+   * 
+   * @param cellId 单元格ID
+   * @param sortedCells 拓扑排序后的单元格列表
+   * @return 单元格的层级（0为最底层）
+   */
+  private int calculateCellLevel(String cellId, List<String> sortedCells) {
+    Cell cell = cells.get(cellId);
+    if (cell == null || cell.getDependencies() == null || cell.getDependencies().isEmpty()) {
+      return 0;
+    }
+
+    int maxDepLevel = -1;
+    for (String dep : cell.getDependencies()) {
+      if (sortedCells.contains(dep)) {
+        int depIndex = sortedCells.indexOf(dep);
+        if (depIndex > maxDepLevel) {
+          maxDepLevel = depIndex;
+        }
+      }
+    }
+
+    return maxDepLevel + 1;
   }
 
   /**
@@ -657,31 +737,5 @@ public class CellCalculator {
     return result;
   }
 
-  /**
-   * 按层级分组 - 用于并行计算
-   * 
-   * @param sortedCells 拓扑排序后的单元格列表
-   * @return 按层级分组的单元格映射
-   */
-  private Map<Integer, List<String>> groupByLevel(List<String> sortedCells) {
-    Map<Integer, List<String>> levelGroups = new HashMap<>();
-    Map<String, Integer> cellLevels = new HashMap<>();
 
-    for (String cellId : sortedCells) {
-      int level = 0;
-      Cell cell = cells.get(cellId);
-      if (cell != null && cell.getDependencies() != null) {
-        for (String dependency : cell.getDependencies()) {
-          if (cellLevels.containsKey(dependency)) {
-            level = Math.max(level, cellLevels.get(dependency) + 1);
-          }
-        }
-      }
-
-      cellLevels.put(cellId, level);
-      levelGroups.computeIfAbsent(level, k -> new ArrayList<>()).add(cellId);
-    }
-
-    return levelGroups;
-  }
 }

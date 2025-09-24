@@ -16,6 +16,11 @@ import java.util.regex.Pattern;
  * 减少代码重复，提高代码复用性。
  */
 public class CalculatorUtils {
+  /**
+   * 性能监控开关 - 用于调试和性能分析
+   * 可通过系统属性 cell.calculator.debug 启用
+   */
+  public static final boolean DEBUG_MODE = Boolean.getBoolean("cell.calculator.debug");
 
   /**
    * 数学计算上下文 - 34位精度，四舍五入
@@ -259,6 +264,21 @@ public class CalculatorUtils {
       return ((Boolean) value) ? "TRUE" : "FALSE";
     }
     return value.toString();
+  }
+
+  /**
+   * 调试输出方法
+   * 
+   * 统一处理调试信息的输出，只有在调试模式开启时才会输出。
+   * 使用 printf 格式化输出，支持格式化字符串和参数。
+   * 
+   * @param format 格式化字符串
+   * @param args 格式化参数
+   */
+  public static void debugPrint(String format, Object... args) {
+    if (DEBUG_MODE) {
+      System.out.printf(format, args);
+    }
   }
 
   // 私有构造函数，防止实例化
