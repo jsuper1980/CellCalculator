@@ -99,14 +99,17 @@ BigDecimal numResult = calculator.getNumber("A3"); // 30
 // 5. 获取单元格定义
 String definition = calculator.getDefine("A3"); // "=A1+A2"
 
-// 6. 高精度计算示例
+// 6. 获取单元格类型
+String type = calculator.getType("A3"); // "number"
+
+// 7. 高精度计算示例
 calculator.set("B1", "=0.1+0.2");
 System.out.println(calculator.get("B1")); // "0.3"
 
 calculator.set("B2", "=10/2");
 System.out.println(calculator.get("B2")); // "5"
 
-// 7. 关闭引擎（释放线程池资源）
+// 8. 关闭引擎（释放线程池资源）
 calculator.shutdown();
 ```
 
@@ -218,6 +221,9 @@ BigDecimal number = calculator.getNumber("A2"); // 25
 // 获取原始定义
 String definition = calculator.getDefine("A2"); // "=A1*2+5"
 
+// 获取单元格类型
+String type = calculator.getType("A2");      // "number"
+
 // 对于数值单元格
 String numDef = calculator.getDefine("A1");     // "10"
 ```
@@ -246,7 +252,7 @@ calculator.set("X1", 20);
 
 ### 多线程安全
 
-引擎使用读写锁机制，支持多线程并发访问：
+引擎使用 `StampedLock` 机制，提供更好的并发性能，支持多线程并发访问：
 
 ```java
 ExecutorService executor = Executors.newFixedThreadPool(4);
@@ -318,9 +324,10 @@ void set(String cellId, boolean value)
 
 ```java
 String get(String cellId)           // 获取字符串结果
-String getDefine(String cellId) // 获取单元格的原始定义字符串
-String getError(String cellId) // 获取单元格的错误信息
-String getType(String cellId) // 获取单元格的类型（数值、字符串、布尔值）
+BigDecimal getNumber(String cellId) // 获取数值结果（BigDecimal类型）
+String getDefine(String cellId)     // 获取单元格的原始定义字符串
+String getError(String cellId)      // 获取单元格的错误信息
+String getType(String cellId)       // 获取单元格的类型（number、string、boolean）
 ```
 
 #### 单元格管理
@@ -353,9 +360,10 @@ void shutdown()  // 关闭线程池，释放资源
 2. **依赖管理**: 维护正向和反向依赖关系图
 3. **表达式解析**: 支持复杂数学表达式的递归解析
 4. **函数处理**: 模块化的函数计算系统
-5. **并发控制**: 读写锁保证数据一致性
+5. **并发控制**: 使用 `StampedLock` 提供更好的并发性能
 6. **高精度计算**: 基于 BigDecimal 的数值计算引擎
 7. **智能格式化**: 自动优化数值显示格式
+8. **线程池管理**: 根据 CPU 核心数动态调整线程池大小
 
 ### 计算流程
 
@@ -392,5 +400,5 @@ mvn test
 ---
 
 **作者**: j² use TRAE
-**版本**: 1.2  
-**日期**: 2025-09-23
+**版本**: 1.1  
+**日期**: 2025-01-23
