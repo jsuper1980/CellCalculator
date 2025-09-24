@@ -157,17 +157,11 @@ public class CellCalculator {
         }
     }
 
+
     /**
-     * 获取单元格字符串值
-     * 
-     * 使用乐观读锁提高并发性能：
-     * 1. 先尝试乐观读
-     * 2. 如果数据在读取过程中被修改，则升级为悲观读锁
-     * 
-     * @param cellId 单元格标识
-     * @return 单元格值的字符串表示，错误或不存在时返回null
+     * 获取单元格值用于表达式计算
      */
-    public String get(String cellId) {
+    Object getCellValue(String cellId) {
         // 1. 尝试乐观读锁
         long stamp = lock.tryOptimisticRead();
         Cell cell = cells.get(cellId);
@@ -189,7 +183,21 @@ public class CellCalculator {
         }
 
         // 5. 格式化并返回值
-        return formatCellValue(cell.getValue());
+        return cell.getValue();
+    }
+
+    /**
+     * 获取单元格字符串值
+     * 
+     * 使用乐观读锁提高并发性能：
+     * 1. 先尝试乐观读
+     * 2. 如果数据在读取过程中被修改，则升级为悲观读锁
+     * 
+     * @param cellId 单元格标识
+     * @return 单元格值的字符串表示，错误或不存在时返回null
+     */
+    public String get(String cellId) {
+        return formatCellValue(getCellValue(cellId));
     }
 
     /**
@@ -837,21 +845,5 @@ public class CellCalculator {
 
         // 使用普通格式
         return stripped.toPlainString();
-    }
-
-    /**
-     * 获取单元格值用于表达式计算
-     */
-    Object getCellValue(String cellId) {
-        Cell cell = cells.get(cellId);
-        if (cell == null) {
-            throw new RuntimeException("单元格不存在: " + cellId);
-        }
-
-        if (cell.hasError()) {
-            throw new RuntimeException("单元格计算错误: " + cellId + " - " + cell.getError());
-        }
-
-        return cell.getValue();
     }
 }
