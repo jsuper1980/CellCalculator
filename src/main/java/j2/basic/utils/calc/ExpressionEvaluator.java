@@ -1,12 +1,11 @@
 package j2.basic.utils.calc;
 
-import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
 
 /**
  * 表达式计算器
@@ -15,37 +14,8 @@ import java.lang.reflect.Method;
 public class ExpressionEvaluator {
 
   private final CellCalculator calculator;
-  private static final MathContext MATH_CONTEXT = new MathContext(34, RoundingMode.HALF_UP);
 
-  // 运算符优先级
-  private static final Map<String, Integer> OPERATOR_PRECEDENCE;
-  static {
-    Map<String, Integer> precedence = new HashMap<>();
-    precedence.put("||", 1);
-    precedence.put("&&", 2);
-    precedence.put("==", 3);
-    precedence.put("!=", 3);
-    precedence.put("<", 3);
-    precedence.put("<=", 3);
-    precedence.put(">", 3);
-    precedence.put(">=", 3);
-    precedence.put("+", 4);
-    precedence.put("-", 4);
-    precedence.put("*", 5);
-    precedence.put("/", 5);
-    precedence.put("\\", 5);
-    precedence.put("%", 5);
-    precedence.put("^", 6);
-    OPERATOR_PRECEDENCE = Collections.unmodifiableMap(precedence);
-  }
-
-  // 函数调用正则表达式
-  private static final Pattern FUNCTION_PATTERN = Pattern.compile(
-      "(\\w+)\\s*\\(([^()]*)\\)");
-
-  // 单元格引用正则表达式
-  private static final Pattern CELL_REFERENCE_PATTERN = Pattern.compile(
-      "\\b([\\p{L}_][\\p{L}\\p{N}_]*)\\b");
+  // 运算符优先级和正则表达式已移至 CalculatorUtils
 
   public ExpressionEvaluator(CellCalculator calculator) {
     this.calculator = calculator;
@@ -66,6 +36,13 @@ public class ExpressionEvaluator {
       return expression.substring(1, expression.length() - 1);
     }
 
+    // 检查是否是 jcall 函数调用，如果是则直接处理
+    Matcher jcallMatcher = CalculatorUtils.JCALL_PATTERN.matcher(expression);
+    if (jcallMatcher.matches()) {
+      String argsString = jcallMatcher.group(1);
+      return callFunction("jcall", argsString);
+    }
+
     // 替换单元格引用
     expression = replaceCellReferences(expression);
 
@@ -80,22 +57,24 @@ public class ExpressionEvaluator {
    * 替换单元格引用为实际值
    */
   private String replaceCellReferences(String expression) {
-    Matcher matcher = CELL_REFERENCE_PATTERN.matcher(expression);
+    // 替换单元格引用为其值
+    Matcher matcher = CalculatorUtils.CELL_REFERENCE_PATTERN.matcher(expression);
     StringBuffer sb = new StringBuffer();
 
     while (matcher.find()) {
       String cellId = matcher.group(1);
 
       // 检查是否是内置函数
-      if (isBuiltInFunction(cellId)) {
+      if (CalculatorUtils.isBuiltInFunction(cellId)) {
         continue;
       }
 
       // 检查是否是有效的单元格ID
-      if (isValidCellId(cellId)) {
+      if (CalculatorUtils.isValidCellId(cellId)) {
         try {
-          Object value = calculator.getCellValue(cellId);
-          String replacement = formatValueForExpression(value);
+          // 直接获取单元格的已计算值，避免触发重新计算
+          Object value = calculator.getRawValue(cellId);
+          String replacement = CalculatorUtils.formatValueForExpression(value);
           matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
         } catch (Exception e) {
           throw new RuntimeException("无法获取单元格值: " + cellId + " - " + e.getMessage());
@@ -112,7 +91,7 @@ public class ExpressionEvaluator {
    */
   private String processFunctions(String expression) {
     while (true) {
-      Matcher matcher = FUNCTION_PATTERN.matcher(expression);
+      Matcher matcher = CalculatorUtils.FUNCTION_PATTERN.matcher(expression);
       if (!matcher.find()) {
         break;
       }
@@ -120,12 +99,20 @@ public class ExpressionEvaluator {
       String functionName = matcher.group(1);
       String argsString = matcher.group(2);
 
-      Object result = callFunction(functionName, argsString);
-      String replacement = formatValueForExpression(result);
-
-      expression = expression.substring(0, matcher.start()) +
-          replacement +
-          expression.substring(matcher.end());
+      // 对于 jcall 函数，直接调用而不替换
+      if ("jcall".equals(functionName.toLowerCase())) {
+        Object result = callFunction(functionName, argsString);
+        String replacement = CalculatorUtils.formatValueForExpression(result);
+        expression = expression.substring(0, matcher.start()) +
+            replacement +
+            expression.substring(matcher.end());
+      } else {
+        Object result = callFunction(functionName, argsString);
+        String replacement = CalculatorUtils.formatValueForExpression(result);
+        expression = expression.substring(0, matcher.start()) +
+            replacement +
+            expression.substring(matcher.end());
+      }
     }
 
     return expression;
@@ -233,9 +220,16 @@ public class ExpressionEvaluator {
     for (String part : parts) {
       part = part.trim();
       if (!part.isEmpty()) {
-        // 递归计算每个参数的值
-        Object value = evaluate(part);
-        args.add(value);
+        // 对于字符串参数，直接使用字面值
+        if (part.startsWith("'") && part.endsWith("'")) {
+          args.add(part.substring(1, part.length() - 1));
+        } else if (part.startsWith("\"") && part.endsWith("\"")) {
+          args.add(part.substring(1, part.length() - 1));
+        } else {
+          // 递归计算每个参数的值
+          Object value = evaluate(part);
+          args.add(value);
+        }
       }
     }
 
@@ -277,7 +271,7 @@ public class ExpressionEvaluator {
           tokens.add(current.toString());
           current.setLength(0);
         }
-      } else if (isOperatorChar(c)) {
+      } else if (CalculatorUtils.isOperatorChar(c)) {
         // 遇到运算符字符
         if (current.length() > 0) {
           tokens.add(current.toString());
@@ -289,7 +283,7 @@ public class ExpressionEvaluator {
         if (i + 1 < expression.length()) {
           char next = expression.charAt(i + 1);
           String twoChar = op + next;
-          if (OPERATOR_PRECEDENCE.containsKey(twoChar)) {
+          if (CalculatorUtils.OPERATOR_PRECEDENCE.containsKey(twoChar)) {
             tokens.add(twoChar);
             i++; // 跳过下一个字符
             continue;
@@ -515,31 +509,10 @@ public class ExpressionEvaluator {
     }
 
     // 解析数值或布尔值
-    return parseValue(token);
+    return CalculatorUtils.parseValue(token);
   }
 
-  /**
-   * 解析值（数字、布尔值、字符串）
-   * 
-   * @param value 值的字符串表示
-   * @return 解析后的值对象
-   */
-  private Object parseValue(String value) {
-    // 布尔值
-    if ("true".equalsIgnoreCase(value)) {
-      return Boolean.TRUE;
-    }
-    if ("false".equalsIgnoreCase(value)) {
-      return Boolean.FALSE;
-    }
 
-    // 尝试解析为数字
-    try {
-      return new BigDecimal(value, MATH_CONTEXT);
-    } catch (NumberFormatException e) {
-      return value; // 作为字符串返回
-    }
-  }
 
   // ==================== 运算方法 ====================
 
@@ -552,7 +525,7 @@ public class ExpressionEvaluator {
    */
   private Object add(Object a, Object b) {
     if (a instanceof BigDecimal && b instanceof BigDecimal) {
-      return ((BigDecimal) a).add((BigDecimal) b, MATH_CONTEXT);
+      return ((BigDecimal) a).add((BigDecimal) b, CalculatorUtils.MATH_CONTEXT);
     }
     throw new RuntimeException("加法运算需要数值类型");
   }
@@ -566,7 +539,7 @@ public class ExpressionEvaluator {
    */
   private Object subtract(Object a, Object b) {
     if (a instanceof BigDecimal && b instanceof BigDecimal) {
-      return ((BigDecimal) a).subtract((BigDecimal) b, MATH_CONTEXT);
+      return ((BigDecimal) a).subtract((BigDecimal) b, CalculatorUtils.MATH_CONTEXT);
     }
     throw new RuntimeException("减法运算需要数值类型");
   }
@@ -580,7 +553,7 @@ public class ExpressionEvaluator {
    */
   private Object multiply(Object a, Object b) {
     if (a instanceof BigDecimal && b instanceof BigDecimal) {
-      return ((BigDecimal) a).multiply((BigDecimal) b, MATH_CONTEXT);
+      return ((BigDecimal) a).multiply((BigDecimal) b, CalculatorUtils.MATH_CONTEXT);
     }
     throw new RuntimeException("乘法运算需要数值类型");
   }
@@ -599,7 +572,7 @@ public class ExpressionEvaluator {
       if (divisor.compareTo(BigDecimal.ZERO) == 0) {
         throw new RuntimeException("除零错误");
       }
-      return ((BigDecimal) a).divide(divisor, MATH_CONTEXT);
+      return ((BigDecimal) a).divide(divisor, CalculatorUtils.MATH_CONTEXT);
     }
     throw new RuntimeException("除法运算需要数值类型");
   }
@@ -641,7 +614,7 @@ public class ExpressionEvaluator {
       if (divisor.compareTo(BigDecimal.ZERO) == 0) {
         throw new RuntimeException("除零错误");
       }
-      BigDecimal result = dividend.remainder(divisor, MATH_CONTEXT);
+      BigDecimal result = dividend.remainder(divisor, CalculatorUtils.MATH_CONTEXT);
       // 确保结果非负
       if (result.compareTo(BigDecimal.ZERO) < 0) {
         result = result.add(divisor.abs());
@@ -667,7 +640,7 @@ public class ExpressionEvaluator {
 
       // 使用Math.pow进行计算，然后转换为BigDecimal
       double result = Math.pow(base.doubleValue(), exponent.doubleValue());
-      return new BigDecimal(result, MATH_CONTEXT);
+      return new BigDecimal(result, CalculatorUtils.MATH_CONTEXT);
     }
     throw new RuntimeException("幂运算需要数值类型");
   }
@@ -786,280 +759,214 @@ public class ExpressionEvaluator {
    */
   private Object sqrt(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("sqrt函数需要1个参数");
+      throw new IllegalArgumentException("sqrt函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
     if (value.compareTo(BigDecimal.ZERO) < 0) {
-      throw new RuntimeException("sqrt函数参数不能为负数");
+      throw new ArithmeticException("不能计算负数的平方根");
     }
-    return new BigDecimal(Math.sqrt(value.doubleValue()), MATH_CONTEXT);
+
+    // 使用牛顿法计算平方根
+    BigDecimal x = value;
+    BigDecimal lastX;
+    do {
+      lastX = x;
+      x = x.add(value.divide(x, CalculatorUtils.MATH_CONTEXT)).divide(new BigDecimal("2"), CalculatorUtils.MATH_CONTEXT);
+    } while (x.subtract(lastX).abs().compareTo(new BigDecimal("1E-" + CalculatorUtils.MATH_CONTEXT.getPrecision())) > 0);
+
+    return x;
   }
 
-  /**
-   * 绝对值函数
-   * 
-   * @param args 参数列表，应包含1个数值参数
-   * @return 绝对值结果
-   */
   private Object abs(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("abs函数需要1个参数");
+      throw new IllegalArgumentException("abs函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
     return value.abs();
   }
 
-  /**
-   * 向上取整函数
-   * 
-   * @param args 参数列表，应包含1个数值参数
-   * @return 向上取整结果
-   */
   private Object ceil(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("ceil函数需要1个参数");
+      throw new IllegalArgumentException("ceil函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
-    return new BigDecimal(Math.ceil(value.doubleValue()));
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
+    return value.setScale(0, RoundingMode.CEILING);
   }
 
-  /**
-   * 向下取整函数
-   * 
-   * @param args 参数列表，应包含1个数值参数
-   * @return 向下取整结果
-   */
   private Object floor(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("floor函数需要1个参数");
+      throw new IllegalArgumentException("floor函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
-    return new BigDecimal(Math.floor(value.doubleValue()));
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
+    return value.setScale(0, RoundingMode.FLOOR);
   }
 
-  /**
-   * 四舍五入函数
-   * 
-   * @param args 参数列表，可包含1个或2个参数
-   *             1个参数：四舍五入到整数
-   *             2个参数：四舍五入到指定小数位数
-   * @return 四舍五入结果
-   */
   private Object round(List<Object> args) {
+    if (args.size() < 1 || args.size() > 2) {
+      throw new IllegalArgumentException("round函数需要1-2个参数");
+    }
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
     if (args.size() == 1) {
-      BigDecimal value = toBigDecimal(args.get(0));
       return value.setScale(0, RoundingMode.HALF_UP);
-    } else if (args.size() == 2) {
-      BigDecimal value = toBigDecimal(args.get(0));
-      int digits = toBigDecimal(args.get(1)).intValue();
-      return value.setScale(digits, RoundingMode.HALF_UP);
     } else {
-      throw new RuntimeException("round函数需要1或2个参数");
+      BigDecimal value2 = CalculatorUtils.toBigDecimal(args.get(0));
+      int digits = CalculatorUtils.toBigDecimal(args.get(1)).intValue();
+      return value2.setScale(digits, RoundingMode.HALF_UP);
     }
   }
 
-  /**
-   * 正弦函数
-   * 
-   * @param args 参数列表，应包含1个数值参数（弧度）
-   * @return 正弦值
-   */
   private Object sin(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("sin函数需要1个参数");
+      throw new IllegalArgumentException("sin函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
-    return new BigDecimal(Math.sin(value.doubleValue()), MATH_CONTEXT);
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
+    double result = Math.sin(value.doubleValue());
+    return new BigDecimal(result, CalculatorUtils.MATH_CONTEXT);
   }
 
-  /**
-   * 余弦函数
-   * 
-   * @param args 参数列表，应包含1个数值参数（弧度）
-   * @return 余弦值
-   */
   private Object cos(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("cos函数需要1个参数");
+      throw new IllegalArgumentException("cos函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
-    return new BigDecimal(Math.cos(value.doubleValue()), MATH_CONTEXT);
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
+    double result = Math.cos(value.doubleValue());
+    return new BigDecimal(result, CalculatorUtils.MATH_CONTEXT);
   }
 
-  /**
-   * 正切函数
-   * 
-   * @param args 参数列表，应包含1个数值参数（弧度）
-   * @return 正切值
-   */
   private Object tan(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("tan函数需要1个参数");
+      throw new IllegalArgumentException("tan函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
-    return new BigDecimal(Math.tan(value.doubleValue()), MATH_CONTEXT);
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
+    double result = Math.tan(value.doubleValue());
+    return new BigDecimal(result, CalculatorUtils.MATH_CONTEXT);
   }
 
-  /**
-   * 反正弦函数
-   * 
-   * @param args 参数列表，应包含1个数值参数
-   * @return 反正弦值（弧度）
-   */
   private Object asin(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("asin函数需要1个参数");
+      throw new IllegalArgumentException("asin函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
-    return new BigDecimal(Math.asin(value.doubleValue()), MATH_CONTEXT);
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
+    double result = Math.asin(value.doubleValue());
+    return new BigDecimal(result, CalculatorUtils.MATH_CONTEXT);
   }
 
-  /**
-   * 反余弦函数
-   * 
-   * @param args 参数列表，应包含1个数值参数
-   * @return 反余弦值（弧度）
-   */
   private Object acos(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("acos函数需要1个参数");
+      throw new IllegalArgumentException("acos函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
-    return new BigDecimal(Math.acos(value.doubleValue()), MATH_CONTEXT);
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
+    double result = Math.acos(value.doubleValue());
+    return new BigDecimal(result, CalculatorUtils.MATH_CONTEXT);
   }
 
-  /**
-   * 反正切函数
-   * 
-   * @param args 参数列表，应包含1个数值参数
-   * @return 反正切值（弧度）
-   */
   private Object atan(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("atan函数需要1个参数");
+      throw new IllegalArgumentException("atan函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
-    return new BigDecimal(Math.atan(value.doubleValue()), MATH_CONTEXT);
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
+    double result = Math.atan(value.doubleValue());
+    return new BigDecimal(result, CalculatorUtils.MATH_CONTEXT);
   }
 
-  /**
-   * 双曲正弦函数
-   * 
-   * @param args 参数列表，应包含1个数值参数
-   * @return 双曲正弦值
-   */
   private Object sinh(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("sinh函数需要1个参数");
+      throw new IllegalArgumentException("sinh函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
-    return new BigDecimal(Math.sinh(value.doubleValue()), MATH_CONTEXT);
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
+    double result = Math.sinh(value.doubleValue());
+    return new BigDecimal(result, CalculatorUtils.MATH_CONTEXT);
   }
 
-  /**
-   * 双曲余弦函数
-   * 
-   * @param args 参数列表，应包含1个数值参数
-   * @return 双曲余弦值
-   */
   private Object cosh(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("cosh函数需要1个参数");
+      throw new IllegalArgumentException("cosh函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
-    return new BigDecimal(Math.cosh(value.doubleValue()), MATH_CONTEXT);
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
+    double result = Math.cosh(value.doubleValue());
+    return new BigDecimal(result, CalculatorUtils.MATH_CONTEXT);
   }
 
-  /**
-   * 双曲正切函数
-   * 
-   * @param args 参数列表，应包含1个数值参数
-   * @return 双曲正切值
-   */
   private Object tanh(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("tanh函数需要1个参数");
+      throw new IllegalArgumentException("tanh函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
-    return new BigDecimal(Math.tanh(value.doubleValue()), MATH_CONTEXT);
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
+    double result = Math.tanh(value.doubleValue());
+    return new BigDecimal(result, CalculatorUtils.MATH_CONTEXT);
   }
 
-  /**
-   * 自然对数函数
-   * 
-   * @param args 参数列表，应包含1个正数参数
-   * @return 自然对数值
-   */
   private Object log(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("log函数需要1个参数");
+      throw new IllegalArgumentException("log函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
     if (value.compareTo(BigDecimal.ZERO) <= 0) {
-      throw new RuntimeException("log函数参数必须大于0");
+      throw new ArithmeticException("log函数的参数必须大于0");
     }
-    return new BigDecimal(Math.log(value.doubleValue()), MATH_CONTEXT);
+
+    double result = Math.log(value.doubleValue());
+    return new BigDecimal(result, CalculatorUtils.MATH_CONTEXT);
   }
 
-  /**
-   * 常用对数函数（以10为底）
-   * 
-   * @param args 参数列表，应包含1个正数参数
-   * @return 常用对数值
-   */
   private Object log10(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("log10函数需要1个参数");
+      throw new IllegalArgumentException("log10函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
     if (value.compareTo(BigDecimal.ZERO) <= 0) {
-      throw new RuntimeException("log10函数参数必须大于0");
+      throw new ArithmeticException("log10函数的参数必须大于0");
     }
-    return new BigDecimal(Math.log10(value.doubleValue()), MATH_CONTEXT);
+
+    double result = Math.log10(value.doubleValue());
+    return new BigDecimal(result, CalculatorUtils.MATH_CONTEXT);
   }
 
-  /**
-   * 指数函数（e的x次方）
-   * 
-   * @param args 参数列表，应包含1个数值参数
-   * @return 指数函数值
-   */
   private Object exp(List<Object> args) {
     if (args.size() != 1) {
-      throw new RuntimeException("exp函数需要1个参数");
+      throw new IllegalArgumentException("exp函数需要1个参数");
     }
-    BigDecimal value = toBigDecimal(args.get(0));
-    return new BigDecimal(Math.exp(value.doubleValue()), MATH_CONTEXT);
+
+    BigDecimal value = CalculatorUtils.toBigDecimal(args.get(0));
+    double result = Math.exp(value.doubleValue());
+    return new BigDecimal(result, CalculatorUtils.MATH_CONTEXT);
   }
 
-  /**
-   * 幂函数
-   * 
-   * @param args 参数列表，应包含2个数值参数（底数和指数）
-   * @return 幂函数值
-   */
   private Object pow(List<Object> args) {
     if (args.size() != 2) {
-      throw new RuntimeException("pow函数需要2个参数");
+      throw new IllegalArgumentException("pow函数需要2个参数");
     }
-    BigDecimal base = toBigDecimal(args.get(0));
-    BigDecimal exponent = toBigDecimal(args.get(1));
-    return new BigDecimal(Math.pow(base.doubleValue(), exponent.doubleValue()), MATH_CONTEXT);
+
+    BigDecimal base = CalculatorUtils.toBigDecimal(args.get(0));
+    BigDecimal exponent = CalculatorUtils.toBigDecimal(args.get(1));
+    double result = Math.pow(base.doubleValue(), exponent.doubleValue());
+    return new BigDecimal(result, CalculatorUtils.MATH_CONTEXT);
   }
 
-  /**
-   * 最小值函数
-   * 
-   * @param args 参数列表，至少包含1个数值参数
-   * @return 最小值
-   */
   private Object min(List<Object> args) {
     if (args.isEmpty()) {
-      throw new RuntimeException("min函数至少需要1个参数");
+      throw new IllegalArgumentException("min函数至少需要1个参数");
     }
-    BigDecimal result = toBigDecimal(args.get(0));
+
+    BigDecimal result = CalculatorUtils.toBigDecimal(args.get(0));
     for (int i = 1; i < args.size(); i++) {
-      BigDecimal value = toBigDecimal(args.get(i));
+      BigDecimal value = CalculatorUtils.toBigDecimal(args.get(i));
       if (value.compareTo(result) < 0) {
         result = value;
       }
@@ -1067,19 +974,14 @@ public class ExpressionEvaluator {
     return result;
   }
 
-  /**
-   * 最大值函数
-   * 
-   * @param args 参数列表，至少包含1个数值参数
-   * @return 最大值
-   */
   private Object max(List<Object> args) {
     if (args.isEmpty()) {
-      throw new RuntimeException("max函数至少需要1个参数");
+      throw new IllegalArgumentException("max函数至少需要1个参数");
     }
-    BigDecimal result = toBigDecimal(args.get(0));
+
+    BigDecimal result = CalculatorUtils.toBigDecimal(args.get(0));
     for (int i = 1; i < args.size(); i++) {
-      BigDecimal value = toBigDecimal(args.get(i));
+      BigDecimal value = CalculatorUtils.toBigDecimal(args.get(i));
       if (value.compareTo(result) > 0) {
         result = value;
       }
@@ -1087,21 +989,17 @@ public class ExpressionEvaluator {
     return result;
   }
 
-  /**
-   * 平均值函数
-   * 
-   * @param args 参数列表，至少包含1个数值参数
-   * @return 平均值
-   */
   private Object avg(List<Object> args) {
     if (args.isEmpty()) {
-      throw new RuntimeException("avg函数至少需要1个参数");
+      throw new IllegalArgumentException("avg函数至少需要1个参数");
     }
+
     BigDecimal sum = BigDecimal.ZERO;
     for (Object arg : args) {
-      sum = sum.add(toBigDecimal(arg));
+      sum = sum.add(CalculatorUtils.toBigDecimal(arg));
     }
-    return sum.divide(new BigDecimal(args.size()), MATH_CONTEXT);
+
+    return sum.divide(new BigDecimal(args.size()), CalculatorUtils.MATH_CONTEXT);
   }
 
   /**
@@ -1228,8 +1126,9 @@ public class ExpressionEvaluator {
       throw new RuntimeException("jcall函数至少需要2个参数（类名和方法名）");
     }
 
-    String className = args.get(0).toString();
-    String methodName = args.get(1).toString();
+    // 确保类名和方法名是字符串
+    String className = args.get(0) instanceof String ? (String) args.get(0) : args.get(0).toString();
+    String methodName = args.get(1) instanceof String ? (String) args.get(1) : args.get(1).toString();
     Object[] methodArgs = args.subList(2, args.size()).toArray();
 
     try {
@@ -1255,47 +1154,18 @@ public class ExpressionEvaluator {
         }
       }
 
-      throw new RuntimeException("找不到匹配的静态方法: " + className + "." + methodName);
+      throw new RuntimeException("找不到匹配的静态方法: " + className + "." + methodName +
+          " 参数个数: " + methodArgs.length);
 
     } catch (Exception e) {
-      throw new RuntimeException("Java方法调用失败: " + e.getMessage());
+      throw new RuntimeException("Java方法调用失败: " + className + "." + methodName +
+          " - " + e.getClass().getSimpleName() + ": " + e.getMessage(), e);
     }
   }
 
   // ==================== 辅助方法 ====================
 
-  /**
-   * 将对象转换为BigDecimal
-   * 
-   * 支持多种类型的转换：
-   * - BigDecimal：直接返回
-   * - Number：转换为BigDecimal
-   * - String：解析为BigDecimal
-   * - Boolean：true转换为1，false转换为0
-   * 
-   * @param value 要转换的值
-   * @return BigDecimal对象
-   * @throws RuntimeException 当无法转换时抛出
-   */
-  private BigDecimal toBigDecimal(Object value) {
-    if (value instanceof BigDecimal) {
-      return (BigDecimal) value;
-    }
-    if (value instanceof Number) {
-      return new BigDecimal(value.toString(), MATH_CONTEXT);
-    }
-    if (value instanceof String) {
-      try {
-        return new BigDecimal((String) value, MATH_CONTEXT);
-      } catch (NumberFormatException e) {
-        throw new RuntimeException("无法转换为数值: " + value);
-      }
-    }
-    if (value instanceof Boolean) {
-      return (Boolean) value ? BigDecimal.ONE : BigDecimal.ZERO;
-    }
-    throw new RuntimeException("无法转换为数值: " + value);
-  }
+
 
   /**
    * 转换Java方法调用的参数类型
@@ -1310,16 +1180,16 @@ public class ExpressionEvaluator {
     }
 
     if (targetType == int.class || targetType == Integer.class) {
-      return toBigDecimal(arg).intValue();
+      return CalculatorUtils.toBigDecimal(arg).intValue();
     }
     if (targetType == long.class || targetType == Long.class) {
-      return toBigDecimal(arg).longValue();
+      return CalculatorUtils.toBigDecimal(arg).longValue();
     }
     if (targetType == float.class || targetType == Float.class) {
-      return toBigDecimal(arg).floatValue();
+      return CalculatorUtils.toBigDecimal(arg).floatValue();
     }
     if (targetType == double.class || targetType == Double.class) {
-      return toBigDecimal(arg).doubleValue();
+      return CalculatorUtils.toBigDecimal(arg).doubleValue();
     }
     if (targetType == boolean.class || targetType == Boolean.class) {
       return isTrue(arg);
@@ -1339,77 +1209,10 @@ public class ExpressionEvaluator {
    */
   private Object convertResult(Object result) {
     if (result instanceof Number && !(result instanceof BigDecimal)) {
-      return new BigDecimal(result.toString(), MATH_CONTEXT);
+      return new BigDecimal(result.toString(), CalculatorUtils.MATH_CONTEXT);
     }
     return result;
   }
 
-  /**
-   * 格式化值用于表达式
-   * 
-   * 将计算结果格式化为可以在表达式中使用的字符串形式
-   * 
-   * @param value 要格式化的值
-   * @return 格式化后的字符串
-   */
-  private String formatValueForExpression(Object value) {
-    if (value == null) {
-      return "null";
-    }
-    if (value instanceof Boolean) {
-      return value.toString(); // 布尔值不加引号
-    }
-    if (value instanceof String) {
-      // 检查字符串是否已经被引号包围
-      String str = (String) value;
-      if ((str.startsWith("\"") && str.endsWith("\"")) ||
-          (str.startsWith("'") && str.endsWith("'"))) {
-        return str; // 已经有引号，直接返回
-      }
-      return "\"" + str + "\""; // 字符串用双引号
-    }
-    return value.toString();
-  }
 
-  /**
-   * 判断字符是否为运算符字符
-   * 
-   * @param c 要判断的字符
-   * @return 是否为运算符字符
-   */
-  private boolean isOperatorChar(char c) {
-    return "+-*/\\%^()=!<>&|".indexOf(c) >= 0;
-  }
-
-  /**
-   * 判断名称是否为内置函数
-   * 
-   * @param name 函数名称
-   * @return 是否为内置函数
-   */
-  private boolean isBuiltInFunction(String name) {
-    return Set.of("sqrt", "abs", "ceil", "floor", "round", "sin", "cos", "tan",
-        "asin", "acos", "atan", "sinh", "cosh", "tanh", "log", "log10",
-        "exp", "pow", "min", "max", "avg", "and", "or", "not", "xor",
-        "if", "ifs", "jcall").contains(name.toLowerCase());
-  }
-
-  /**
-   * 验证单元格ID是否有效
-   * 
-   * 有效的单元格ID规则：
-   * - 以字母或下划线开头
-   * - 后续字符可以是字母、数字或下划线
-   * - 不能是保留字（true、false）
-   * 
-   * @param id 单元格ID
-   * @return 是否为有效的单元格ID
-   */
-  private boolean isValidCellId(String id) {
-    // 将 true 和 false 作为保留字，不能作为 CellID
-    if ("true".equalsIgnoreCase(id) || "false".equalsIgnoreCase(id)) {
-      return false;
-    }
-    return Pattern.matches("^[\\p{L}_][\\p{L}\\p{N}_]*$", id);
-  }
 }

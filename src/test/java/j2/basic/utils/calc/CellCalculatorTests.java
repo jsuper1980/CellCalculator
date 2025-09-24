@@ -231,4 +231,21 @@ public class CellCalculatorTests {
     assertNotNull(j3Error, "无效单元格引用应该产生错误");
     assertNull(calculator.get("J3"), "有错误的单元格应该返回null");
   }
+
+  @Test
+  @DisplayName("Java方法调用测试")
+  void testJavaMethodCall() {
+    calculator.set("K1", "=jcall('java.lang.String','valueOf',100)");
+    calculator.set("K2", "=jcall('j2.basic.utils.calc.MathUtils','factorial',5)");
+    calculator.set("K3", "=jcall('notFoundClass','notFoundMethod',1,2)");
+
+    System.out.println("K1 = jcall('String','valueOf',100) = " + calculator.get("K1"));
+    System.out.println("K2 = jcall('j2.basic.utils.calc.MathUtils','factorial',5) = " + calculator.get("K2"));
+    System.out.println("K3 = jcall('notFoundClass','notFoundMethod',1,2) = " + calculator.get("K3"));
+    System.out.println("K3 error = " + calculator.getError("K3"));
+
+    assertEquals("100", calculator.get("K1"));
+    assertEquals("120", calculator.get("K2"));
+    assertNotNull(calculator.getError("K3"), "Java方法调用失败应该产生错误");
+  }
 }
