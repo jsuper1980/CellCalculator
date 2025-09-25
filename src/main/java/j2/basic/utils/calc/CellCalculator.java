@@ -1,6 +1,14 @@
 package j2.basic.utils.calc;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -204,6 +212,20 @@ public class CellCalculator {
   }
 
   /**
+   * 获取所有单元格
+   * 
+   * @return 所有单元格的Map集合
+   */
+  public Map<String, Cell> getCells() {
+    long stamp = lock.readLock();
+    try {
+      return new HashMap<>(cells);
+    } finally {
+      lock.unlockRead(stamp);
+    }
+  }
+
+  /**
    * 删除单元格
    * 
    * 执行步骤：
@@ -275,6 +297,140 @@ public class CellCalculator {
     } catch (InterruptedException e) {
       executor.shutdownNow();
       Thread.currentThread().interrupt();
+    }
+  }
+
+
+  /**
+   * 将内存中的表格定义保存到输出流
+   * 格式：CellID:CellDefine，每行一个单元格
+   * 保存过程中不触发联动计算
+   * 
+   * @param outputStream 输出流
+   * @throws IOException 当写入失败时
+   */
+  public void save(OutputStream outputStream) throws IOException {
+    long stamp = lock.readLock();
+    try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8))) {
+      // 遍历所有单元格，保存非空定义的单元格
+      for (Map.Entry<String, Cell> entry : cells.entrySet()) {
+        String cellId = entry.getKey();
+        Cell cell = entry.getValue();
+        String define = cell.getDefine();
+
+        // 只保存有定义内容的单元格
+        if (define != null && !define.isEmpty()) {
+          writer.write(cellId + ":" + define);
+          writer.newLine();
+        }
+      }
+      writer.flush();
+    } finally {
+      lock.unlockRead(stamp);
+    }
+  }
+
+  /**
+   * 从输入流载入表格定义到内存
+   * 格式：CellID:CellDefine，每行一个单元格
+   * 载入过程中不触发联动计算，只设置单元格定义
+   * 
+   * @param inputStream 输入流
+   * @throws IOException 当读取失败时
+   * @throws IllegalArgumentException 当数据格式错误时
+   */
+  public void load(InputStream inputStream) throws IOException {
+    long stamp = lock.writeLock();
+    try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+      String line;
+      int lineNumber = 0;
+
+      while ((line = reader.readLine()) != null) {
+        lineNumber++;
+        line = line.trim();
+
+        // 跳过空行
+        if (line.isEmpty()) {
+          continue;
+        }
+
+        // 解析格式：CellID:CellDefine
+        int colonIndex = line.indexOf(':');
+        if (colonIndex == -1) {
+          throw new IllegalArgumentException("第" + lineNumber + "行格式错误，缺少冒号分隔符: " + line);
+        }
+
+        String cellId = line.substring(0, colonIndex).trim();
+        String cellDefine = line.substring(colonIndex + 1);
+
+        // 验证单元格ID
+        validateCellId(cellId);
+
+        // 创建或获取单元格，只设置定义，不计算值
+        Cell cell = cells.computeIfAbsent(cellId, Cell::new);
+        cell.setDefine(cellDefine);
+        cell.setValue(null); // 清空值，等待重算
+        cell.setError(null); // 清空错误信息
+
+        // 解析依赖关系但不更新依赖图（避免触发计算）
+        Set<String> dependencies = extractDependencies(cellDefine);
+        cell.setDependencies(dependencies);
+      }
+    } finally {
+      lock.unlockWrite(stamp);
+    }
+  }
+
+  /**
+   * 重新计算整个表格
+   * 从最底层（无依赖的单元格）开始，按依赖关系顺序重新计算所有单元格
+   * 这个方法通常在load之后调用，以确保所有单元格值都是最新的
+   */
+  public void recalculate() {
+    long stamp = lock.writeLock();
+    try {
+      // 1. 重建依赖关系图
+      dependents.clear();
+      for (Map.Entry<String, Cell> entry : cells.entrySet()) {
+        String cellId = entry.getKey();
+        Cell cell = entry.getValue();
+        Set<String> dependencies = cell.getDependencies();
+
+        if (dependencies != null) {
+          for (String dependency : dependencies) {
+            dependents.computeIfAbsent(dependency, k -> ConcurrentHashMap.newKeySet()).add(cellId);
+          }
+        }
+      }
+
+      // 2. 获取所有需要计算的单元格
+      Set<String> allCellIds = new HashSet<>(cells.keySet());
+
+      // 3. 拓扑排序确定计算顺序
+      List<String> sortedCells = topologicalSort(allCellIds);
+
+      // 4. 按顺序重新计算所有单元格
+      calculateCellsInParallel(sortedCells);
+
+    } finally {
+      lock.unlockWrite(stamp);
+    }
+  }
+
+  /**
+   * 清空所有单元格数据
+   * 
+   * 执行步骤:
+   * 1. 获取写锁
+   * 2. 清空cells和dependents
+   */
+  public void clear() {
+    long stamp = lock.writeLock();
+    try {
+      cells.clear();
+      dependents.clear();
+    } finally {
+      lock.unlockWrite(stamp);
     }
   }
 
@@ -736,6 +892,4 @@ public class CellCalculator {
 
     return result;
   }
-
-
 }
