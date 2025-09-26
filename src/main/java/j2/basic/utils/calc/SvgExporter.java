@@ -5,7 +5,14 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.locks.StampedLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -17,7 +24,7 @@ import java.util.regex.Pattern;
  * @author j2
  * @version 1.0
  */
-public class CellCalculatorSvgExporter {
+public class SvgExporter {
 
   // SVG样式常量
   private static final int CELL_WIDTH = 120;
@@ -40,11 +47,11 @@ public class CellCalculatorSvgExporter {
 
   // 颜色分配相关常量
   private static final String[] PREDEFINED_COLORS = {
-    "#FF5722", "#2196F3", "#4CAF50", "#FF9800", "#9C27B0", 
-    "#F44336", "#00BCD4", "#8BC34A", "#FFC107", "#673AB7",
-    "#E91E63", "#009688", "#CDDC39", "#FF6F00", "#3F51B5"
+      "#FF5722", "#2196F3", "#4CAF50", "#FF9800", "#9C27B0",
+      "#F44336", "#00BCD4", "#8BC34A", "#FFC107", "#673AB7",
+      "#E91E63", "#009688", "#CDDC39", "#FF6F00", "#3F51B5"
   };
-  
+
   private final CellCalculator calculator;
 
   /**
@@ -85,7 +92,7 @@ public class CellCalculatorSvgExporter {
     }
   }
 
-  public CellCalculatorSvgExporter(CellCalculator calculator) {
+  public SvgExporter(CellCalculator calculator) {
     this.calculator = calculator;
   }
 
@@ -95,7 +102,7 @@ public class CellCalculatorSvgExporter {
    * @param outputStream 输出流
    * @throws IOException 如果写入失败
    */
-  public void exportToSvg(OutputStream outputStream) throws IOException {
+  public void export(OutputStream outputStream) throws IOException {
     StampedLock lock = getCalculatorLock();
     long stamp = lock.readLock();
     try {
@@ -128,7 +135,7 @@ public class CellCalculatorSvgExporter {
 
     // 构建依赖图
     Map<String, Set<String>> dependencyGraph = buildDependencyGraph(cellIds);
-    
+
     // 如果没有依赖关系，使用简单网格布局
     if (dependencyGraph.values().stream().allMatch(Set::isEmpty)) {
       return calculateSimpleGridLayout(cellIds);
@@ -143,7 +150,7 @@ public class CellCalculatorSvgExporter {
    */
   private Map<String, Set<String>> buildDependencyGraph(Set<String> cellIds) {
     Map<String, Set<String>> graph = new HashMap<>();
-    
+
     // 初始化所有节点
     for (String cellId : cellIds) {
       graph.put(cellId, new HashSet<>());
@@ -198,11 +205,11 @@ public class CellCalculatorSvgExporter {
   private Map<String, CellPosition> calculateSugiyamaLayout(Set<String> cellIds, Map<String, Set<String>> dependencyGraph) {
     // 第一步：层次分配（拓扑排序）
     Map<String, Integer> layers = assignLayers(cellIds, dependencyGraph);
-    
+
     // 第二步：交叉最小化
     Map<Integer, List<String>> layerNodes = groupNodesByLayer(layers);
     minimizeCrossings(layerNodes, dependencyGraph);
-    
+
     // 第三步：坐标分配
     return assignCoordinates(layerNodes);
   }
@@ -213,7 +220,7 @@ public class CellCalculatorSvgExporter {
   private Map<String, Integer> assignLayers(Set<String> cellIds, Map<String, Set<String>> dependencyGraph) {
     Map<String, Integer> layers = new HashMap<>();
     Map<String, Integer> inDegree = new HashMap<>();
-    
+
     // 计算入度
     for (String cellId : cellIds) {
       inDegree.put(cellId, 0);
@@ -223,7 +230,7 @@ public class CellCalculatorSvgExporter {
         inDegree.put(to, inDegree.get(to) + 1);
       }
     }
-    
+
     // 拓扑排序
     Queue<String> queue = new LinkedList<>();
     for (String cellId : cellIds) {
@@ -232,11 +239,11 @@ public class CellCalculatorSvgExporter {
         layers.put(cellId, 0);
       }
     }
-    
+
     while (!queue.isEmpty()) {
       String current = queue.poll();
       int currentLayer = layers.get(current);
-      
+
       for (String next : dependencyGraph.get(current)) {
         inDegree.put(next, inDegree.get(next) - 1);
         if (inDegree.get(next) == 0) {
@@ -245,7 +252,7 @@ public class CellCalculatorSvgExporter {
         }
       }
     }
-    
+
     return layers;
   }
 
@@ -254,17 +261,17 @@ public class CellCalculatorSvgExporter {
    */
   private Map<Integer, List<String>> groupNodesByLayer(Map<String, Integer> layers) {
     Map<Integer, List<String>> layerNodes = new HashMap<>();
-    
+
     for (Map.Entry<String, Integer> entry : layers.entrySet()) {
       int layer = entry.getValue();
       layerNodes.computeIfAbsent(layer, k -> new ArrayList<>()).add(entry.getKey());
     }
-    
+
     // 按字母顺序排序每层的节点
     for (List<String> nodes : layerNodes.values()) {
       nodes.sort(String::compareTo);
     }
-    
+
     return layerNodes;
   }
 
@@ -273,7 +280,7 @@ public class CellCalculatorSvgExporter {
    */
   private void minimizeCrossings(Map<Integer, List<String>> layerNodes, Map<String, Set<String>> dependencyGraph) {
     int maxLayer = layerNodes.keySet().stream().mapToInt(Integer::intValue).max().orElse(0);
-    
+
     // 多次迭代优化
     for (int iteration = 0; iteration < 3; iteration++) {
       // 从上到下
@@ -282,7 +289,7 @@ public class CellCalculatorSvgExporter {
           optimizeLayerOrder(layerNodes, layer, dependencyGraph, true);
         }
       }
-      
+
       // 从下到上
       for (int layer = maxLayer - 1; layer >= 0; layer--) {
         if (layerNodes.containsKey(layer)) {
@@ -295,17 +302,18 @@ public class CellCalculatorSvgExporter {
   /**
    * 优化单层节点顺序
    */
-  private void optimizeLayerOrder(Map<Integer, List<String>> layerNodes, int layer, 
-                                  Map<String, Set<String>> dependencyGraph, boolean downward) {
+  private void optimizeLayerOrder(Map<Integer, List<String>> layerNodes, int layer,
+      Map<String, Set<String>> dependencyGraph, boolean downward) {
     List<String> currentLayer = layerNodes.get(layer);
-    if (currentLayer.size() <= 1) return;
-    
+    if (currentLayer.size() <= 1)
+      return;
+
     // 计算每个节点的重心位置
     Map<String, Double> barycenters = new HashMap<>();
-    
+
     for (String node : currentLayer) {
       List<Integer> connectedPositions = new ArrayList<>();
-      
+
       if (downward && layerNodes.containsKey(layer - 1)) {
         // 向下优化：查看上一层的连接
         List<String> prevLayer = layerNodes.get(layer - 1);
@@ -324,14 +332,13 @@ public class CellCalculatorSvgExporter {
           }
         }
       }
-      
+
       // 计算重心
-      double barycenter = connectedPositions.isEmpty() ? 
-          currentLayer.indexOf(node) : 
-          connectedPositions.stream().mapToInt(Integer::intValue).average().orElse(0);
+      double barycenter = connectedPositions.isEmpty() ? currentLayer.indexOf(node)
+          : connectedPositions.stream().mapToInt(Integer::intValue).average().orElse(0);
       barycenters.put(node, barycenter);
     }
-    
+
     // 按重心排序
     currentLayer.sort((a, b) -> Double.compare(barycenters.get(a), barycenters.get(b)));
   }
@@ -341,17 +348,17 @@ public class CellCalculatorSvgExporter {
    */
   private Map<String, CellPosition> assignCoordinates(Map<Integer, List<String>> layerNodes) {
     Map<String, CellPosition> positions = new HashMap<>();
-    
+
     for (Map.Entry<Integer, List<String>> entry : layerNodes.entrySet()) {
       int layer = entry.getKey();
       List<String> nodes = entry.getValue();
-      
+
       for (int i = 0; i < nodes.size(); i++) {
         String cellId = nodes.get(i);
         positions.put(cellId, new CellPosition(cellId, i, layer));
       }
     }
-    
+
     return positions;
   }
 
@@ -462,7 +469,7 @@ public class CellCalculatorSvgExporter {
         + "; text-anchor: middle; }\n");
     writer.write("      .cell-id { font-family: 'Microsoft YaHei', Arial, sans-serif; font-size: 12px; font-weight: bold; fill: "
         + COLOR_BORDER + "; text-anchor: middle; }\n");
-    
+
     // 默认箭头样式
     writer.write("      .arrow { stroke: " + COLOR_ARROW + "; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }\n");
     writer.write("      .arrow:hover { stroke: " + COLOR_ARROW_HOVER + "; stroke-width: 3; }\n");
@@ -470,20 +477,20 @@ public class CellCalculatorSvgExporter {
     writer.write("      .arrow-curve:hover { stroke: " + COLOR_ARROW_HOVER + "; stroke-width: 3; }\n");
     writer.write("      .arrow-head { fill: " + COLOR_ARROW + "; stroke: none; }\n");
     writer.write("      .arrow-head:hover { fill: " + COLOR_ARROW_HOVER + "; }\n");
-    
+
     // 动态生成颜色样式
     Set<String> processedColors = new HashSet<>();
     for (Map.Entry<String, String> entry : arrowColors.entrySet()) {
       String key = entry.getKey();
       String colorClass = entry.getValue();
-      
+
       if (!key.endsWith(":hover") && !processedColors.contains(colorClass)) {
         processedColors.add(colorClass);
-        
+
         // 从类名中提取颜色值
         String colorValue = "#" + colorClass.substring("arrow-color-".length()).toUpperCase();
         String hoverColor = generateHoverColor(colorValue);
-        
+
         // 为每种颜色生成CSS类
         writer.write("      ." + colorClass + " { stroke: " + colorValue + "; stroke-width: 2; fill: none; }\n");
         writer.write("      ." + colorClass + ":hover { stroke: " + hoverColor + "; stroke-width: 3; }\n");
@@ -491,7 +498,7 @@ public class CellCalculatorSvgExporter {
         writer.write("      ." + colorClass + "-head:hover { fill: " + hoverColor + "; }\n");
       }
     }
-    
+
     writer.write("      .cell-rect:hover { stroke-width: 3; filter: brightness(1.1); }\n");
     writer.write("    ]]></style>\n");
 
@@ -518,7 +525,7 @@ public class CellCalculatorSvgExporter {
       if (fromPos != null && toPos != null) {
         // 检查是否为层次化布局（垂直方向的依赖）
         boolean isHierarchical = Math.abs(fromPos.gridY - toPos.gridY) > 0;
-        
+
         if (isHierarchical && fromPos.gridY < toPos.gridY) {
           // 层次化布局：绘制优化的曲线箭头
           drawHierarchicalArrow(writer, fromPos, toPos, dep, arrowColors);
@@ -533,7 +540,8 @@ public class CellCalculatorSvgExporter {
   /**
    * 绘制层次化布局的曲线箭头
    */
-  private void drawHierarchicalArrow(Writer writer, CellPosition fromPos, CellPosition toPos, Dependency dep, Map<String, String> arrowColors) throws IOException {
+  private void drawHierarchicalArrow(Writer writer, CellPosition fromPos, CellPosition toPos, Dependency dep,
+      Map<String, String> arrowColors) throws IOException {
     int fromCenterX = fromPos.getCenterX();
     int fromCenterY = fromPos.getCenterY();
     int toCenterX = toPos.getCenterX();
@@ -548,12 +556,12 @@ public class CellCalculatorSvgExporter {
     // 计算控制点以创建平滑的贝塞尔曲线
     int controlY1 = startY + (endY - startY) / 3;
     int controlY2 = endY - (endY - startY) / 3;
-    
+
     // 如果水平距离较大，添加水平控制点
     int horizontalOffset = Math.abs(endX - startX);
     int controlX1 = startX;
     int controlX2 = endX;
-    
+
     if (horizontalOffset > GRID_SPACING_X) {
       controlX1 = startX + (endX - startX) / 4;
       controlX2 = endX - (endX - startX) / 4;
@@ -576,7 +584,8 @@ public class CellCalculatorSvgExporter {
   /**
    * 绘制直线箭头（用于非层次化布局）
    */
-  private void drawStraightArrow(Writer writer, CellPosition fromPos, CellPosition toPos, Dependency dep, Map<String, String> arrowColors) throws IOException {
+  private void drawStraightArrow(Writer writer, CellPosition fromPos, CellPosition toPos, Dependency dep, Map<String, String> arrowColors)
+      throws IOException {
     // 计算箭头起点和终点（避免与单元格重叠）
     int[] startPoint = calculateArrowPoint(fromPos, toPos, true);
     int[] endPoint = calculateArrowPoint(toPos, fromPos, false);
@@ -602,26 +611,27 @@ public class CellCalculatorSvgExporter {
     double dx = endX - startX;
     double dy = endY - startY;
     double length = Math.sqrt(dx * dx + dy * dy);
-    
-    if (length == 0) return;
-    
+
+    if (length == 0)
+      return;
+
     // 单位向量
     double unitX = dx / length;
     double unitY = dy / length;
-    
+
     // 箭头头部大小
     int arrowSize = 8;
     double arrowAngle = Math.PI / 6; // 30度
-    
+
     // 计算箭头头部的两个点
     double cos = Math.cos(arrowAngle);
     double sin = Math.sin(arrowAngle);
-    
+
     int arrowX1 = (int) (endX - arrowSize * (unitX * cos + unitY * sin));
     int arrowY1 = (int) (endY - arrowSize * (unitY * cos - unitX * sin));
     int arrowX2 = (int) (endX - arrowSize * (unitX * cos - unitY * sin));
     int arrowY2 = (int) (endY - arrowSize * (unitY * cos + unitX * sin));
-    
+
     // 绘制箭头头部，使用对应的颜色类
     String headClass = colorClass.replace("arrow", "arrow-head");
     writer.write(String.format("  <polygon points=\"%d,%d %d,%d %d,%d\" class=\"%s\"/>\n",
@@ -805,49 +815,49 @@ public class CellCalculatorSvgExporter {
    */
   private Map<String, String> assignArrowColors(List<Dependency> dependencies, Map<String, CellPosition> positions) {
     Map<String, String> arrowColors = new HashMap<>();
-    
+
     // 按层级分组依赖关系
     Map<Integer, List<Dependency>> dependenciesByLayer = new HashMap<>();
     for (Dependency dep : dependencies) {
       CellPosition fromPos = positions.get(dep.from);
       CellPosition toPos = positions.get(dep.to);
-      
+
       if (fromPos != null && toPos != null) {
         // 使用起始单元格的层级作为分组依据
         int layer = fromPos.gridY;
         dependenciesByLayer.computeIfAbsent(layer, k -> new ArrayList<>()).add(dep);
       }
     }
-    
+
     // 为每个层级分配颜色
     for (Map.Entry<Integer, List<Dependency>> entry : dependenciesByLayer.entrySet()) {
       List<Dependency> layerDeps = entry.getValue();
-      
+
       // 按目标单元格分组
       Map<String, List<Dependency>> depsByTarget = new HashMap<>();
       for (Dependency dep : layerDeps) {
         depsByTarget.computeIfAbsent(dep.to, k -> new ArrayList<>()).add(dep);
       }
-      
+
       // 为每个目标分配颜色
       int colorIndex = 0;
       for (Map.Entry<String, List<Dependency>> targetEntry : depsByTarget.entrySet()) {
         String color = PREDEFINED_COLORS[colorIndex % PREDEFINED_COLORS.length];
         // 生成CSS类名（去掉#号，转换为小写）
         String colorClass = "arrow-color-" + color.substring(1).toLowerCase();
-        
+
         for (Dependency dep : targetEntry.getValue()) {
           String key = dep.from + "->" + dep.to;
           arrowColors.put(key, colorClass);
         }
-        
+
         colorIndex++;
       }
     }
-    
+
     return arrowColors;
   }
-  
+
   /**
    * 生成悬停时的颜色（稍微变暗）
    */
@@ -859,12 +869,12 @@ public class CellCalculatorSvgExporter {
         int r = (rgb >> 16) & 0xFF;
         int g = (rgb >> 8) & 0xFF;
         int b = rgb & 0xFF;
-        
+
         // 降低亮度
-        r = Math.max(0, (int)(r * 0.8));
-        g = Math.max(0, (int)(g * 0.8));
-        b = Math.max(0, (int)(b * 0.8));
-        
+        r = Math.max(0, (int) (r * 0.8));
+        g = Math.max(0, (int) (g * 0.8));
+        b = Math.max(0, (int) (b * 0.8));
+
         return String.format("#%02X%02X%02X", r, g, b);
       } catch (NumberFormatException e) {
         return COLOR_ARROW_HOVER; // 回退到默认颜色

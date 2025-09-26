@@ -44,12 +44,12 @@ public class SvgExportDemo {
       System.out.println("表格数据创建完成！");
 
       // 创建SVG导出器
-      CellCalculatorSvgExporter exporter = new CellCalculatorSvgExporter(calculator);
+      SvgExporter exporter = new SvgExporter(calculator);
 
       // 导出为SVG文件
       String fileName = "demo.svg";
       try (FileOutputStream fileOutput = new FileOutputStream(fileName)) {
-        exporter.exportToSvg(fileOutput);
+        exporter.export(fileOutput);
         System.out.println("SVG文件已导出: " + fileName);
         System.out.println("请用浏览器打开该文件查看可视化的单元格依赖关系图");
       }

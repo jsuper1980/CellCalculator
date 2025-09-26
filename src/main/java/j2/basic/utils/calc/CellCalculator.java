@@ -212,20 +212,6 @@ public class CellCalculator {
   }
 
   /**
-   * 获取所有单元格
-   * 
-   * @return 所有单元格的Map集合
-   */
-  public Map<String, Cell> getCells() {
-    long stamp = lock.readLock();
-    try {
-      return new HashMap<>(cells);
-    } finally {
-      lock.unlockRead(stamp);
-    }
-  }
-
-  /**
    * 删除单元格
    * 
    * 执行步骤：
