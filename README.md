@@ -708,7 +708,7 @@ Apache License 2.0
 如有问题或建议，请通过以下方式联系：
 
 - 📧 Email: jsuper1980@msn.com
-- 💬 GitHub Issues: [提交问题](https://github.com/jsuper1980/cell-calculator/issues)
+- 💬 GitHub Issues: [提交问题](https://github.com/jsuper1980/CellCalculator/issues)
 
 ---
 
