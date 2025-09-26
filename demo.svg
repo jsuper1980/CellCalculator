@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="700" height="660" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style type="text/css"><![CDATA[
+      .title { font-family: 'Microsoft YaHei', Arial, sans-serif; font-size: 18px; font-weight: bold; text-anchor: middle; fill: #212121; }
+      .cell-normal { fill: #E3F2FD; stroke: #1976D2; stroke-width: 2; }
+      .cell-formula { fill: #FFF3E0; stroke: #1976D2; stroke-width: 2; }
+      .cell-string { fill: #F3E5F5; stroke: #1976D2; stroke-width: 2; }
+      .cell-error { fill: #FFEBEE; stroke: #1976D2; stroke-width: 2; }
+      .cell-text { font-family: 'Consolas', 'Monaco', monospace; font-size: 11px; fill: #212121; text-anchor: middle; }
+      .cell-id { font-family: 'Microsoft YaHei', Arial, sans-serif; font-size: 12px; font-weight: bold; fill: #1976D2; text-anchor: middle; }
+      .arrow { stroke: #FF5722; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .arrow:hover { stroke: #D32F2F; stroke-width: 3; }
+      .arrow-curve { stroke: #FF5722; stroke-width: 2; fill: none; }
+      .arrow-curve:hover { stroke: #D32F2F; stroke-width: 3; }
+      .arrow-head { fill: #FF5722; stroke: none; }
+      .arrow-head:hover { fill: #D32F2F; }
+      .arrow-color-f44336 { stroke: #F44336; stroke-width: 2; fill: none; }
+      .arrow-color-f44336:hover { stroke: #C3352B; stroke-width: 3; }
+      .arrow-color-f44336-head { fill: #F44336; stroke: none; }
+      .arrow-color-f44336-head:hover { fill: #C3352B; }
+      .arrow-color-ff9800 { stroke: #FF9800; stroke-width: 2; fill: none; }
+      .arrow-color-ff9800:hover { stroke: #CC7900; stroke-width: 3; }
+      .arrow-color-ff9800-head { fill: #FF9800; stroke: none; }
+      .arrow-color-ff9800-head:hover { fill: #CC7900; }
+      .arrow-color-ff5722 { stroke: #FF5722; stroke-width: 2; fill: none; }
+      .arrow-color-ff5722:hover { stroke: #CC451B; stroke-width: 3; }
+      .arrow-color-ff5722-head { fill: #FF5722; stroke: none; }
+      .arrow-color-ff5722-head:hover { fill: #CC451B; }
+      .arrow-color-2196f3 { stroke: #2196F3; stroke-width: 2; fill: none; }
+      .arrow-color-2196f3:hover { stroke: #1A78C2; stroke-width: 3; }
+      .arrow-color-2196f3-head { fill: #2196F3; stroke: none; }
+      .arrow-color-2196f3-head:hover { fill: #1A78C2; }
+      .arrow-color-4caf50 { stroke: #4CAF50; stroke-width: 2; fill: none; }
+      .arrow-color-4caf50:hover { stroke: #3C8C40; stroke-width: 3; }
+      .arrow-color-4caf50-head { fill: #4CAF50; stroke: none; }
+      .arrow-color-4caf50-head:hover { fill: #3C8C40; }
+      .arrow-color-9c27b0 { stroke: #9C27B0; stroke-width: 2; fill: none; }
+      .arrow-color-9c27b0:hover { stroke: #7C1F8C; stroke-width: 3; }
+      .arrow-color-9c27b0-head { fill: #9C27B0; stroke: none; }
+      .arrow-color-9c27b0-head:hover { fill: #7C1F8C; }
+      .cell-rect:hover { stroke-width: 3; filter: brightness(1.1); }
+    ]]></style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#FF5722" />
+    </marker>
+  </defs>
+  <text x="350" y="30" class="title">单元格依赖关系图</text>
+  <path d="M 110 310 Q 110 323 110 330 T 110 350" class="arrow-color-ff5722">
+    <title>C1 → D1</title>
+  </path>
+  <polygon points="110,350 106,343 114,343" class="arrow-head-color-ff5722"/>
+  <path d="M 270 310 Q 270 323 190 330 T 110 350" class="arrow-color-ff5722">
+    <title>C2 → D1</title>
+  </path>
+  <polygon points="110,350 115,344 117,352" class="arrow-head-color-ff5722"/>
+  <path d="M 430 310 Q 350 323 270 330 T 110 350" class="arrow-color-ff5722">
+    <title>C3 → D1</title>
+  </path>
+  <polygon points="110,350 116,345 117,353" class="arrow-head-color-ff5722"/>
+  <path d="M 110 410 Q 110 423 110 430 T 110 450" class="arrow-color-ff5722">
+    <title>D1 → E2</title>
+  </path>
+  <polygon points="110,450 106,443 114,443" class="arrow-head-color-ff5722"/>
+  <path d="M 110 110 Q 110 156 110 180 T 110 250" class="arrow-color-ff9800">
+    <title>A1 → C1</title>
+  </path>
+  <polygon points="110,250 106,243 114,243" class="arrow-head-color-ff9800"/>
+  <path d="M 110 210 Q 110 223 110 230 T 110 250" class="arrow-color-4caf50">
+    <title>B1 → C1</title>
+  </path>
+  <polygon points="110,250 106,243 114,243" class="arrow-head-color-4caf50"/>
+  <path d="M 110 210 Q 230 223 350 230 T 590 250" class="arrow-color-2196f3">
+    <title>B1 → D2</title>
+  </path>
+  <polygon points="590,250 582,253 583,245" class="arrow-head-color-2196f3"/>
+  <path d="M 270 210 Q 350 223 430 230 T 590 250" class="arrow-color-2196f3">
+    <title>B2 → D2</title>
+  </path>
+  <polygon points="590,250 582,253 583,245" class="arrow-head-color-2196f3"/>
+  <path d="M 430 210 Q 430 223 510 230 T 590 250" class="arrow-color-2196f3">
+    <title>B3 → D2</title>
+  </path>
+  <polygon points="590,250 582,252 584,244" class="arrow-head-color-2196f3"/>
+  <path d="M 110 510 Q 110 523 110 530 T 110 550" class="arrow-color-ff5722">
+    <title>E2 → E3</title>
+  </path>
+  <polygon points="110,550 106,543 114,543" class="arrow-head-color-ff5722"/>
+  <path d="M 110 110 Q 110 123 110 130 T 110 150" class="arrow-color-f44336">
+    <title>A1 → B1</title>
+  </path>
+  <polygon points="110,150 106,143 114,143" class="arrow-head-color-f44336"/>
+  <path d="M 270 110 Q 270 156 270 180 T 270 250" class="arrow-color-9c27b0">
+    <title>A2 → C2</title>
+  </path>
+  <polygon points="270,250 266,243 274,243" class="arrow-head-color-9c27b0"/>
+  <path d="M 270 210 Q 270 223 270 230 T 270 250" class="arrow-color-ff9800">
+    <title>B2 → C2</title>
+  </path>
+  <polygon points="270,250 266,243 274,243" class="arrow-head-color-ff9800"/>
+  <path d="M 270 110 Q 270 123 270 130 T 270 150" class="arrow-color-2196f3">
+    <title>A2 → B2</title>
+  </path>
+  <polygon points="270,150 266,143 274,143" class="arrow-head-color-2196f3"/>
+  <path d="M 430 110 Q 430 156 430 180 T 430 250" class="arrow-color-ff5722">
+    <title>A3 → C3</title>
+  </path>
+  <polygon points="430,250 426,243 434,243" class="arrow-head-color-ff5722"/>
+  <path d="M 430 210 Q 430 223 430 230 T 430 250" class="arrow-color-ff5722">
+    <title>B3 → C3</title>
+  </path>
+  <polygon points="430,250 426,243 434,243" class="arrow-head-color-ff5722"/>
+  <path d="M 430 110 Q 430 123 430 130 T 430 150" class="arrow-color-4caf50">
+    <title>A3 → B3</title>
+  </path>
+  <polygon points="430,150 426,143 434,143" class="arrow-head-color-4caf50"/>
+  <rect x="530" y="50" width="120" height="60" class="cell-string cell-rect">
+    <title>E1: &#39;总销售额&#39;</title>
+  </rect>
+  <text x="590" y="68" class="cell-id">E1</text>
+  <text x="590" y="84" class="cell-text">总销售额</text>
+  <text x="590" y="102" class="cell-text" style="font-size: 9px; opacity: 0.7;">&#39;总销售额&#39;</text>
+  <rect x="50" y="350" width="120" height="60" class="cell-formula cell-rect">
+    <title>D1: =C1+C2+C3</title>
+  </rect>
+  <text x="110" y="368" class="cell-id">D1</text>
+  <text x="110" y="384" class="cell-text">1260.0</text>
+  <text x="110" y="402" class="cell-text" style="font-size: 9px; opacity: 0.7;">=C1+C2+C3</text>
+  <rect x="50" y="450" width="120" height="60" class="cell-formula cell-rect">
+    <title>E2: =D1*1.1</title>
+  </rect>
+  <text x="110" y="468" class="cell-id">E2</text>
+  <text x="110" y="484" class="cell-text">1386.00</text>
+  <text x="110" y="502" class="cell-text" style="font-size: 9px; opacity: 0.7;">=D1*1.1</text>
+  <rect x="50" y="250" width="120" height="60" class="cell-formula cell-rect">
+    <title>C1: =A1+B1</title>
+  </rect>
+  <text x="110" y="268" class="cell-id">C1</text>
+  <text x="110" y="284" class="cell-text">220.0</text>
+  <text x="110" y="302" class="cell-text" style="font-size: 9px; opacity: 0.7;">=A1+B1</text>
+  <rect x="530" y="250" width="120" height="60" class="cell-formula cell-rect">
+    <title>D2: =B1+B2+B3</title>
+  </rect>
+  <text x="590" y="268" class="cell-id">D2</text>
+  <text x="590" y="284" class="cell-text">660.0</text>
+  <text x="590" y="302" class="cell-text" style="font-size: 9px; opacity: 0.7;">=B1+B2+B3</text>
+  <rect x="50" y="550" width="120" height="60" class="cell-formula cell-rect">
+    <title>E3: =IF(E2&gt;1000, &#39;优秀&#39;, &#39;良好&#39;)</title>
+  </rect>
+  <text x="110" y="568" class="cell-id">E3</text>
+  <text x="110" y="584" class="cell-text">优秀</text>
+  <text x="110" y="602" class="cell-text" style="font-size: 9px; opacity: 0.7;">=IF(E2&gt;1000, &#39;优...</text>
+  <rect x="50" y="150" width="120" height="60" class="cell-formula cell-rect">
+    <title>B1: =A1*1.2</title>
+  </rect>
+  <text x="110" y="168" class="cell-id">B1</text>
+  <text x="110" y="184" class="cell-text">120.0</text>
+  <text x="110" y="202" class="cell-text" style="font-size: 9px; opacity: 0.7;">=A1*1.2</text>
+  <rect x="210" y="250" width="120" height="60" class="cell-formula cell-rect">
+    <title>C2: =A2+B2</title>
+  </rect>
+  <text x="270" y="268" class="cell-id">C2</text>
+  <text x="270" y="284" class="cell-text">500.0</text>
+  <text x="270" y="302" class="cell-text" style="font-size: 9px; opacity: 0.7;">=A2+B2</text>
+  <rect x="50" y="50" width="120" height="60" class="cell-normal cell-rect">
+    <title>A1: 100</title>
+  </rect>
+  <text x="110" y="68" class="cell-id">A1</text>
+  <text x="110" y="84" class="cell-text">100</text>
+  <rect x="210" y="150" width="120" height="60" class="cell-formula cell-rect">
+    <title>B2: =A2*1.5</title>
+  </rect>
+  <text x="270" y="168" class="cell-id">B2</text>
+  <text x="270" y="184" class="cell-text">300.0</text>
+  <text x="270" y="202" class="cell-text" style="font-size: 9px; opacity: 0.7;">=A2*1.5</text>
+  <rect x="370" y="250" width="120" height="60" class="cell-formula cell-rect">
+    <title>C3: =A3+B3</title>
+  </rect>
+  <text x="430" y="268" class="cell-id">C3</text>
+  <text x="430" y="284" class="cell-text">540.0</text>
+  <text x="430" y="302" class="cell-text" style="font-size: 9px; opacity: 0.7;">=A3+B3</text>
+  <rect x="210" y="50" width="120" height="60" class="cell-normal cell-rect">
+    <title>A2: 200</title>
+  </rect>
+  <text x="270" y="68" class="cell-id">A2</text>
+  <text x="270" y="84" class="cell-text">200</text>
+  <rect x="370" y="150" width="120" height="60" class="cell-formula cell-rect">
+    <title>B3: =A3*0.8</title>
+  </rect>
+  <text x="430" y="168" class="cell-id">B3</text>
+  <text x="430" y="184" class="cell-text">240.0</text>
+  <text x="430" y="202" class="cell-text" style="font-size: 9px; opacity: 0.7;">=A3*0.8</text>
+  <rect x="370" y="50" width="120" height="60" class="cell-normal cell-rect">
+    <title>A3: 300</title>
+  </rect>
+  <text x="430" y="68" class="cell-id">A3</text>
+  <text x="430" y="84" class="cell-text">300</text>
+</svg>

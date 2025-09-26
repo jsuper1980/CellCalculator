@@ -47,7 +47,7 @@ public class SvgExportDemo {
       CellCalculatorSvgExporter exporter = new CellCalculatorSvgExporter(calculator);
 
       // 导出为SVG文件
-      String fileName = "/Users/j/Temp/cell_calculator_demo.svg";
+      String fileName = "demo.svg";
       try (FileOutputStream fileOutput = new FileOutputStream(fileName)) {
         exporter.exportToSvg(fileOutput);
         System.out.println("SVG文件已导出: " + fileName);
