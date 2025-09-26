@@ -1,6 +1,6 @@
 # 单元格计算引擎 (CellCalculator)
 
-一个轻量级模拟 Excel 单元格联动的计算引擎，支持单元格引用、公式计算、数学函数、逻辑运算和 Java 类调用。
+一个高性能的内存表格计算引擎，支持类似 Excel 的公式计算、单元格依赖关系管理和可视化导出。
 
 ## 🚀 特性
 
@@ -311,13 +311,13 @@ calculator.set("B3", "=10/3");     // "3.3333333333" (保留必要的小数位)
 #### 设置单元格值
 
 ```java
-void set(String cellId, String content)
-void set(String cellId, Number value)
-void set(String cellId, int value)
-void set(String cellId, long value)
-void set(String cellId, float value)
-void set(String cellId, double value)
-void set(String cellId, boolean value)
+void set(String cellId, String definition)
+void set(String cellId, Number definition)
+void set(String cellId, int definition)
+void set(String cellId, long definition)
+void set(String cellId, float definition)
+void set(String cellId, double definition)
+void set(String cellId, boolean definition)
 ```
 
 #### 获取单元格值
@@ -382,23 +382,340 @@ void shutdown()  // 关闭线程池，释放资源
 5. **Java 调用**: `jcall` 函数只能调用公共静态方法
 6. **格式化**: 计算结果会自动去除无意义的尾随零，提供更友好的显示格式
 
-## 🔍 示例项目
+## 📚 完整示例
 
-项目包含完整的演示代码，展示了引擎的各种功能：
+### 电商销售分析示例
 
-```bash
-# 运行演示
-mvn test
+以下是一个完整的电商销售数据分析示例，展示了 Cell Calculator 的各种功能：
+
+```java
+public class EcommerceSalesAnalysis {
+    public static void main(String[] args) throws IOException {
+        CellCalculator calculator = new CellCalculator();
+
+        // 基础销售数据
+        calculator.set("A1", "'产品'");
+        calculator.set("B1", "'单价'");
+        calculator.set("C1", "'数量'");
+        calculator.set("D1", "'销售额'");
+        calculator.set("E1", "'利润率'");
+        calculator.set("F1", "'利润'");
+
+        // 产品数据
+        calculator.set("A2", "'手机'");
+        calculator.set("B2", "2999");
+        calculator.set("C2", "150");
+        calculator.set("D2", "=B2*C2");
+        calculator.set("E2", "0.25");
+        calculator.set("F2", "=D2*E2");
+
+        calculator.set("A3", "'平板'");
+        calculator.set("B3", "1999");
+        calculator.set("C3", "80");
+        calculator.set("D3", "=B3*C3");
+        calculator.set("E3", "0.30");
+        calculator.set("F3", "=D3*E3");
+
+        calculator.set("A4", "'耳机'");
+        calculator.set("B4", "299");
+        calculator.set("C4", "500");
+        calculator.set("D4", "=B4*C4");
+        calculator.set("E4", "0.40");
+        calculator.set("F4", "=D4*E4");
+
+        // 汇总统计
+        calculator.set("A6", "'总销售额'");
+        calculator.set("D6", "=SUM(D2:D4)");
+
+        calculator.set("A7", "'总利润'");
+        calculator.set("F7", "=SUM(F2:F4)");
+
+        calculator.set("A8", "'平均利润率'");
+        calculator.set("F8", "=F7/D6");
+
+        calculator.set("A9", "'最佳产品'");
+        calculator.set("F9", "=IF(F2>F3, IF(F2>F4, A2, A4), IF(F3>F4, A3, A4))");
+
+        // 输出结果
+        System.out.println("=== 电商销售分析结果 ===");
+        System.out.println("手机销售额: " + calculator.get("D2"));
+        System.out.println("平板销售额: " + calculator.get("D3"));
+        System.out.println("耳机销售额: " + calculator.get("D4"));
+        System.out.println("总销售额: " + calculator.get("D6"));
+        System.out.println("总利润: " + calculator.get("F7"));
+        System.out.println("平均利润率: " + String.format("%.2f%%",
+            ((Double)calculator.get("F8")) * 100));
+        System.out.println("最佳产品: " + calculator.get("F9"));
+
+        // 导出依赖关系图
+        CellCalculatorSvgExporter exporter = new CellCalculatorSvgExporter(calculator);
+        try (FileOutputStream output = new FileOutputStream("sales_analysis.svg")) {
+            exporter.exportToSvg(output);
+            System.out.println("\n依赖关系图已导出: sales_analysis.svg");
+        }
+
+        calculator.shutdown();
+    }
+}
 ```
+
+### 财务报表示例
+
+```java
+public class FinancialReport {
+    public static void main(String[] args) throws IOException {
+        CellCalculator calculator = new CellCalculator();
+
+        // 收入项目
+        calculator.set("A1", "'营业收入'");
+        calculator.set("B1", "1000000");
+
+        calculator.set("A2", "'其他收入'");
+        calculator.set("B2", "50000");
+
+        calculator.set("A3", "'总收入'");
+        calculator.set("B3", "=B1+B2");
+
+        // 成本项目
+        calculator.set("A5", "'营业成本'");
+        calculator.set("B5", "600000");
+
+        calculator.set("A6", "'管理费用'");
+        calculator.set("B6", "150000");
+
+        calculator.set("A7", "'销售费用'");
+        calculator.set("B7", "100000");
+
+        calculator.set("A8", "'总成本'");
+        calculator.set("B8", "=B5+B6+B7");
+
+        // 利润计算
+        calculator.set("A10", "'毛利润'");
+        calculator.set("B10", "=B3-B5");
+
+        calculator.set("A11", "'净利润'");
+        calculator.set("B11", "=B3-B8");
+
+        calculator.set("A12", "'利润率'");
+        calculator.set("B12", "=B11/B3");
+
+        // 财务指标
+        calculator.set("A14", "'毛利率'");
+        calculator.set("B14", "=B10/B3");
+
+        calculator.set("A15", "'成本率'");
+        calculator.set("B15", "=B8/B3");
+
+        // 输出报表
+        System.out.println("=== 财务报表 ===");
+        System.out.println("总收入: ¥" + String.format("%,.0f", calculator.get("B3")));
+        System.out.println("总成本: ¥" + String.format("%,.0f", calculator.get("B8")));
+        System.out.println("毛利润: ¥" + String.format("%,.0f", calculator.get("B10")));
+        System.out.println("净利润: ¥" + String.format("%,.0f", calculator.get("B11")));
+        System.out.println("毛利率: " + String.format("%.1f%%",
+            ((Double)calculator.get("B14")) * 100));
+        System.out.println("净利率: " + String.format("%.1f%%",
+            ((Double)calculator.get("B12")) * 100));
+
+        // 导出可视化图表
+        CellCalculatorSvgExporter exporter = new CellCalculatorSvgExporter(calculator);
+        try (FileOutputStream output = new FileOutputStream("financial_report.svg")) {
+            exporter.exportToSvg(output);
+            System.out.println("\n财务报表依赖图已导出: financial_report.svg");
+        }
+
+        calculator.shutdown();
+    }
+}
+```
+
+### 学生成绩管理示例
+
+```java
+public class StudentGradeManager {
+    public static void main(String[] args) throws IOException {
+        CellCalculator calculator = new CellCalculator();
+
+        // 表头
+        calculator.set("A1", "'姓名'");
+        calculator.set("B1", "'数学'");
+        calculator.set("C1", "'英语'");
+        calculator.set("D1", "'物理'");
+        calculator.set("E1", "'总分'");
+        calculator.set("F1", "'平均分'");
+        calculator.set("G1", "'等级'");
+
+        // 学生数据
+        String[] students = {"张三", "李四", "王五", "赵六"};
+        int[][] scores = {
+            {85, 92, 78},
+            {76, 88, 82},
+            {94, 85, 91},
+            {68, 75, 72}
+        };
+
+        for (int i = 0; i < students.length; i++) {
+            int row = i + 2;
+            calculator.set("A" + row, "'" + students[i] + "'");
+            calculator.set("B" + row, String.valueOf(scores[i][0]));
+            calculator.set("C" + row, String.valueOf(scores[i][1]));
+            calculator.set("D" + row, String.valueOf(scores[i][2]));
+            calculator.set("E" + row, "=B" + row + "+C" + row + "+D" + row);
+            calculator.set("F" + row, "=E" + row + "/3");
+            calculator.set("G" + row, "=IF(F" + row + ">=90, '优秀', " +
+                "IF(F" + row + ">=80, '良好', " +
+                "IF(F" + row + ">=70, '中等', '需要改进')))");
+        }
+
+        // 统计信息
+        calculator.set("A7", "'班级统计'");
+        calculator.set("A8", "'数学平均'");
+        calculator.set("B8", "=AVG(B2:B5)");
+        calculator.set("A9", "'英语平均'");
+        calculator.set("C9", "=AVG(C2:C5)");
+        calculator.set("A10", "'物理平均'");
+        calculator.set("D10", "=AVG(D2:D5)");
+        calculator.set("A11", "'最高总分'");
+        calculator.set("E11", "=MAX(E2:E5)");
+        calculator.set("A12", "'最低总分'");
+        calculator.set("E12", "=MIN(E2:E5)");
+
+        // 输出成绩报告
+        System.out.println("=== 学生成绩报告 ===");
+        for (int i = 2; i <= 5; i++) {
+            System.out.printf("%s: 总分%.0f, 平均%.1f, 等级%s%n",
+                calculator.get("A" + i),
+                calculator.get("E" + i),
+                calculator.get("F" + i),
+                calculator.get("G" + i));
+        }
+
+        System.out.println("\n=== 班级统计 ===");
+        System.out.printf("数学平均: %.1f%n", calculator.get("B8"));
+        System.out.printf("英语平均: %.1f%n", calculator.get("C9"));
+        System.out.printf("物理平均: %.1f%n", calculator.get("D10"));
+        System.out.printf("最高总分: %.0f%n", calculator.get("E11"));
+        System.out.printf("最低总分: %.0f%n", calculator.get("E12"));
+
+        // 导出成绩分析图
+        CellCalculatorSvgExporter exporter = new CellCalculatorSvgExporter(calculator);
+        try (FileOutputStream output = new FileOutputStream("grade_analysis.svg")) {
+            exporter.exportToSvg(output);
+            System.out.println("\n成绩分析图已导出: grade_analysis.svg");
+        }
+
+        calculator.shutdown();
+    }
+}
+```
+
+## 🔍 测试和示例
+
+### 运行测试
+
+````bash
+# 运行所有测试
+mvn test
+
+# 运行特定测试
+mvn test -Dtest=CellCalculatorTest
+
+
+## 🎨 SVG 可视化导出
+
+### 功能特性
+
+Cell Calculator 提供强大的 SVG 可视化导出功能，将复杂的单元格依赖关系转换为直观的图形：
+
+- **🎯 智能布局**: 使用 Sugiyama 算法进行层次化布局，最小化边的交叉
+- **🌈 颜色分组**: 根据依赖层级和目标单元格自动分配颜色，相同目标的依赖使用相同颜色
+- **✨ 交互效果**: 支持鼠标悬停效果，箭头会变粗变暗
+- **📊 多种样式**: 不同类型的单元格使用不同的背景色（数值、公式、字符串、错误）
+- **🔍 详细信息**: 鼠标悬停显示单元格的完整定义和值
+
+### 颜色分组规则
+
+SVG 导出器会根据以下规则为依赖箭头分配颜色：
+
+1. **按层级分组**: 相同层级的依赖关系会被分组处理
+2. **按目标分组**: 指向同一目标单元格的所有箭头使用相同颜色
+3. **预定义色彩**: 使用 15 种预定义的鲜明颜色，循环使用
+4. **悬停效果**: 鼠标悬停时箭头颜色会自动变暗，宽度增加
+
+### 使用示例
+
+```java
+// 创建复杂的依赖关系
+CellCalculator calculator = new CellCalculator();
+
+// 基础数据层
+calculator.set("A1", "100");
+calculator.set("B1", "200");
+calculator.set("C1", "50");
+
+// 计算层
+calculator.set("A2", "=A1*1.2");
+calculator.set("B2", "=B1*1.5");
+calculator.set("C2", "=C1*2");
+
+// 汇总层
+calculator.set("D1", "=A2+B2");
+calculator.set("D2", "=C2+D1");
+
+// 导出SVG
+CellCalculatorSvgExporter exporter = new CellCalculatorSvgExporter(calculator);
+try (FileOutputStream output = new FileOutputStream("dependency_graph.svg")) {
+    exporter.exportToSvg(output);
+}
+````
 
 ## 📄 许可证
 
-本项目基于 Java 17 构建。
+Apache License 2.0
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 📈 更新日志
+
+### v1.2.0 (最新)
+
+- ✨ 新增 SVG 可视化导出功能
+- 🎨 实现智能颜色分组，相同目标依赖使用相同颜色
+- 🎯 集成 Sugiyama 算法进行层次化布局
+- ✨ 添加交互效果，支持鼠标悬停
+- 📊 支持多种单元格样式（数值、公式、字符串、错误）
+- 🔍 添加详细的工具提示信息
+
+### v1.1.0
+
+- 🚀 性能优化，提升大规模数据处理能力
+- 🔒 增强线程安全性
+- 🛡️ 改进错误处理机制
+- 📝 完善文档和示例
+
+### v1.0.0
+
+- 🎉 初始版本发布
+- 🧮 支持基本的公式计算和依赖管理
+- ⚡ 实现增量计算和缓存机制
+- 🔗 添加线程安全支持
+- 📚 提供完整的函数库
+
+## 📞 联系方式
+
+如有问题或建议，请通过以下方式联系：
+
+- 📧 Email: jsuper1980@msn.com
+- 💬 GitHub Issues: [提交问题](https://github.com/jsuper1980/cell-calculator/issues)
+
+---
 
 本项目采用 Apache-2.0 许可证开源，您可以在遵守许可证条款的前提下自由使用、修改和分发本项目的代码。
 
 ---
 
 **作者**: j² use TRAE
-**版本**: 1.1  
-**日期**: 2025-01-23
+**版本**: 1.2.0
+**日期**: 2025-09-26

@@ -30,7 +30,7 @@ import java.util.regex.Matcher;
  * 单元格计算引擎
  * 
  * @author j2
- * @version 1.2
+ * @version 1.2.0
  */
 public class CellCalculator {
 
