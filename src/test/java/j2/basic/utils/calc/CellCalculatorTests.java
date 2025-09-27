@@ -144,7 +144,7 @@ public class CellCalculatorTests {
     calculator.set("G5", "=ROUND(B1,1)");
     calculator.set("G6", "=IF(A1>50,'大,big','小 and small')");
 
-    calculator.set("C1", 55);
+    calculator.set("C1", 95);
     calculator.set("G7", "=IFS(C1>=90,'优',C1>=80,'良',C1>=60,'中','差')");
 
     System.out.println("A1 = " + calculator.get("A1"));
@@ -163,7 +163,7 @@ public class CellCalculatorTests {
     assertEquals("10", calculator.get("G4"));
     assertEquals("200.5", calculator.get("G5"));
     assertEquals("大,big", calculator.get("G6"));
-    assertEquals("差", calculator.get("G7"));
+    assertEquals("优", calculator.get("G7"));
   }
 
   @Test
