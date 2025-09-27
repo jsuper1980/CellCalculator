@@ -2,6 +2,12 @@
 
 一个高性能的内存表格计算引擎，支持类似 Excel 的公式计算、单元格依赖关系管理和可视化导出。
 
+**作者**: j² use TRAE
+**版本**: 1.2.0
+**日期**: 2025-09-26
+**Java 版本**: 17+  
+**许可证**: Apache License 2.0
+
 ## 🚀 特性
 
 ### 核心功能
@@ -15,6 +21,9 @@
 - **高精度计算**: 使用 BigDecimal 进行数值计算，避免浮点数精度问题
 - **智能格式化**: 自动去除计算结果中无意义的尾随零（如 1.0000 显示为 1）
 - **完整运算符支持**: 支持基础四则运算、整数除法、余数运算、幂运算、逻辑运算等
+- **数据持久化**: 支持保存和加载计算数据
+- **可视化导出**: 支持将单元格依赖关系导出为 SVG 图形
+- **性能优化**: 支持并行计算和拓扑排序优化
 
 ### 数学运算符
 
@@ -79,7 +88,9 @@
 
 ### 基本用法
 
-## 📖 快速开始
+## 📖 使用指南
+
+### 基本用法
 
 ```java
 // 1. 创建引擎实例
@@ -95,6 +106,7 @@ calculator.set("A3", "=A1+A2");
 // 4. 获取计算结果
 String result = calculator.get("A3"); // "30"
 BigDecimal numResult = calculator.getNumber("A3"); // 30
+Object rawValue = calculator.getRawValue("A3"); // BigDecimal(30)
 
 // 5. 获取单元格定义
 String definition = calculator.getDefine("A3"); // "=A1+A2"
@@ -109,7 +121,22 @@ System.out.println(calculator.get("B1")); // "0.3"
 calculator.set("B2", "=10/2");
 System.out.println(calculator.get("B2")); // "5"
 
-// 8. 关闭引擎（释放线程池资源）
+// 8. 数据持久化
+try (FileOutputStream fos = new FileOutputStream("data.txt")) {
+    calculator.save(fos);
+}
+
+try (FileInputStream fis = new FileInputStream("data.txt")) {
+    calculator.load(fis);
+}
+
+// 9. 可视化导出
+SvgExporter exporter = new SvgExporter(calculator);
+try (FileOutputStream fos = new FileOutputStream("dependencies.svg")) {
+    exporter.export(fos);
+}
+
+// 10. 关闭引擎（释放线程池资源）
 calculator.shutdown();
 ```
 
@@ -250,6 +277,65 @@ calculator.set("X1", 20);
 
 ## 🔧 高级特性
 
+### 数据持久化
+
+引擎支持将计算数据保存到文件并重新加载：
+
+```java
+CellCalculator calculator = new CellCalculator();
+
+// 设置一些数据
+calculator.set("A1", 100);
+calculator.set("A2", "=A1*2");
+calculator.set("名称", "'产品A'");
+
+// 保存到文件
+try (FileOutputStream fos = new FileOutputStream("calculator_data.txt")) {
+    calculator.save(fos);
+    System.out.println("数据已保存");
+}
+
+// 清空当前数据
+calculator.clear();
+
+// 从文件加载
+try (FileInputStream fis = new FileInputStream("calculator_data.txt")) {
+    calculator.load(fis);
+    System.out.println("数据已加载");
+    System.out.println("A2 = " + calculator.get("A2")); // "200"
+    System.out.println("名称 = " + calculator.get("名称")); // "产品A"
+}
+```
+
+### 可视化导出
+
+使用 `SvgExporter` 类可以将单元格依赖关系导出为美观的 SVG 图形：
+
+```java
+CellCalculator calculator = new CellCalculator();
+
+// 创建一些有依赖关系的单元格
+calculator.set("收入", 1000000);
+calculator.set("成本", 600000);
+calculator.set("毛利", "=收入-成本");
+calculator.set("税率", 0.25);
+calculator.set("税后利润", "=毛利*(1-税率)");
+
+// 导出依赖关系图
+SvgExporter exporter = new SvgExporter(calculator);
+try (FileOutputStream fos = new FileOutputStream("financial_dependencies.svg")) {
+    exporter.export(fos);
+    System.out.println("依赖关系图已导出为 SVG 格式");
+}
+```
+
+导出的 SVG 图形具有以下特点：
+
+- **智能布局**: 自动使用 Sugiyama 算法进行层次化布局
+- **美观样式**: 不同类型的单元格使用不同颜色
+- **交互效果**: 支持鼠标悬停高亮效果
+- **依赖箭头**: 清晰显示单元格间的依赖关系
+
 ### 多线程安全
 
 引擎使用 `StampedLock` 机制，提供更好的并发性能，支持多线程并发访问：
@@ -325,6 +411,7 @@ void set(String cellId, boolean definition)
 ```java
 String get(String cellId)           // 获取字符串结果
 BigDecimal getNumber(String cellId) // 获取数值结果（BigDecimal类型）
+Object getRawValue(String cellId)   // 获取原始值对象
 String getDefine(String cellId)     // 获取单元格的原始定义字符串
 String getError(String cellId)      // 获取单元格的错误信息
 String getType(String cellId)       // 获取单元格的类型（number、string、boolean）
@@ -335,6 +422,23 @@ String getType(String cellId)       // 获取单元格的类型（number、strin
 ```java
 void del(String cellId)      // 删除单元格
 boolean exist(String cellId) // 检查单元格是否存在
+void clear()                 // 清空所有单元格
+void recalculate()          // 重新计算所有单元格
+```
+
+#### 数据持久化
+
+```java
+void save(OutputStream outputStream) throws IOException  // 保存数据到输出流
+void load(InputStream inputStream) throws IOException    // 从输入流加载数据
+```
+
+#### 可视化导出
+
+```java
+// 使用SvgExporter类导出依赖关系图
+SvgExporter exporter = new SvgExporter(calculator);
+exporter.export(outputStream);  // 导出为SVG格式
 ```
 
 #### 资源管理
@@ -364,14 +468,29 @@ void shutdown()  // 关闭线程池，释放资源
 6. **高精度计算**: 基于 BigDecimal 的数值计算引擎
 7. **智能格式化**: 自动优化数值显示格式
 8. **线程池管理**: 根据 CPU 核心数动态调整线程池大小
+9. **数据持久化**: 支持文本格式的数据保存和加载
+10. **可视化导出**: 基于 Sugiyama 算法的 SVG 图形导出
 
 ### 计算流程
 
 1. **公式解析**: 提取单元格引用和函数调用
 2. **依赖建立**: 更新依赖关系图
-3. **拓扑排序**: 确定计算顺序
-4. **并行计算**: 按层级并行执行计算
-5. **结果更新**: 更新单元格计算结果
+3. **循环检测**: 检查并防止循环引用
+4. **拓扑排序**: 确定计算顺序
+5. **并行计算**: 按层级并行执行计算
+6. **结果更新**: 更新单元格计算结果
+
+### 项目结构
+
+```
+src/main/java/j2/basic/utils/calc/
+├── CellCalculator.java      # 主计算引擎类
+├── Cell.java               # 单元格数据模型
+├── ExpressionEvaluator.java # 表达式求值器
+├── CalculatorUtils.java    # 工具类
+├── SvgExporter.java        # SVG导出器
+└── TokenIterator.java      # 词法分析器
+```
 
 ## 📝 注意事项
 
@@ -381,6 +500,45 @@ void shutdown()  // 关闭线程池，释放资源
 4. **数值精度**: 内部使用 **BigDecimal** 进行高精度计算，完全避免浮点数精度问题
 5. **Java 调用**: `jcall` 函数只能调用公共静态方法
 6. **格式化**: 计算结果会自动去除无意义的尾随零，提供更友好的显示格式
+7. **数据持久化**: 保存的数据格式为文本格式，包含单元格 ID 和定义
+8. **SVG 导出**: 导出的 SVG 文件可在浏览器中查看，支持交互效果
+9. **并发安全**: 所有公共方法都是线程安全的，支持多线程并发访问
+10. **内存管理**: 大量单元格时注意内存使用，可使用 `clear()` 方法清理数据
+
+## 🚀 快速开始
+
+### Maven 依赖
+
+```xml
+<dependency>
+    <groupId>j2.basic</groupId>
+    <artifactId>cell_calculator</artifactId>
+    <version>1.2.0</version>
+</dependency>
+```
+
+### 系统要求
+
+- **Java**: 17 或更高版本
+- **内存**: 建议 512MB 以上
+- **CPU**: 支持多核并行计算
+
+### 构建项目
+
+```bash
+# 克隆项目
+git clone <repository-url>
+cd cell-calculator
+
+# 编译项目
+mvn clean compile
+
+# 运行测试
+mvn test
+
+# 打包
+mvn package
+```
 
 ## 📚 完整示例
 
@@ -448,9 +606,9 @@ public class EcommerceSalesAnalysis {
         System.out.println("最佳产品: " + calculator.get("F9"));
 
         // 导出依赖关系图
-        CellCalculatorSvgExporter exporter = new CellCalculatorSvgExporter(calculator);
+        SvgExporter exporter = new SvgExporter(calculator);
         try (FileOutputStream output = new FileOutputStream("sales_analysis.svg")) {
-            exporter.exportToSvg(output);
+            exporter.export(output);
             System.out.println("\n依赖关系图已导出: sales_analysis.svg");
         }
 
@@ -518,9 +676,9 @@ public class FinancialReport {
             ((Double)calculator.get("B12")) * 100));
 
         // 导出可视化图表
-        CellCalculatorSvgExporter exporter = new CellCalculatorSvgExporter(calculator);
+        SvgExporter exporter = new SvgExporter(calculator);
         try (FileOutputStream output = new FileOutputStream("financial_report.svg")) {
-            exporter.exportToSvg(output);
+            exporter.export(output);
             System.out.println("\n财务报表依赖图已导出: financial_report.svg");
         }
 
@@ -715,7 +873,3 @@ Apache License 2.0
 本项目采用 Apache-2.0 许可证开源，您可以在遵守许可证条款的前提下自由使用、修改和分发本项目的代码。
 
 ---
-
-**作者**: j² use TRAE
-**版本**: 1.2.0
-**日期**: 2025-09-26

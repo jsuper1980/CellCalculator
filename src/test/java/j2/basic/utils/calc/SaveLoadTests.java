@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
  * @author j2
  * @version 1.0
  */
-public class CellCalculatorSaveLoadTest {
+public class SaveLoadTests {
 
   private CellCalculator calculator;
 

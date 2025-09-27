@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Timeout;
  * @author j2
  */
 @DisplayName("CellCalculator 性能测试")
-public class CellCalculatorPerformanceTest {
+public class PerformanceTests {
 
   private CellCalculator calculator;
   private MemoryMXBean memoryBean;
