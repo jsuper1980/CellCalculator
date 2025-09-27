@@ -443,7 +443,6 @@ public class PerformanceTests {
     // 触发一些联动计算
     calculator.set("EXTREME_0", 1000);
 
-    long endTime = System.nanoTime();
     long endMemory = getUsedMemory();
 
     // 验证部分结果
